@@ -89,9 +89,9 @@ Route::prefix('customer')
         // 📄 ROUTE CETAK PDF SISI CUSTOMER
         Route::get('/pengajuan/{id}/cetak-pdf', [Customer\PengajuanController::class, 'cetakPdf'])->name('pengajuan.cetak-pdf');
 
-        // 🏢 REQUEST PEMINJAMAN MOBIL & RUANG
+        // 🏢 REQUEST PEMINJAMAN FASILITAS (MOBIL & RUANG)
         Route::prefix('peminjaman')->name('peminjaman.')->group(function () {
-            Route::get('/{jenis}', [Customer\PeminjamanController::class, 'index'])->name('index');
+            Route::get('/{jenis?}', [Customer\PeminjamanController::class, 'index'])->name('index');
             Route::post('/', [Customer\PeminjamanController::class, 'store'])->name('store');
         });
     });

@@ -11,31 +11,55 @@ use App\Models\User; // 💡 Sudah ter-import
 
 class PeminjamanController extends Controller
 {
-    public function index($jenis)
+    public function index($jenis = null)
     {
         // Mengambil ID User dari session custom BPS (Mencoba array, jika gagal mencoba objek)
         $userId = is_array(session('auth_user')) ? session('auth_user.id') : (session('auth_user')->id ?? null);
 
-        // 1. Ambil data peminjaman milik user yang login sesuai jenis menu (untuk tabel bawah)
-        $peminjaman = Peminjaman::where('user_id', $userId)
-            ->where('jenis_fasilitas', $jenis)
-            ->latest()
-            ->get();
+        // 1. Ambil data peminjaman milik user yang login
+        $query = Peminjaman::where('user_id', $userId);
+        if ($jenis && in_array($jenis, ['mobil', 'ruang'])) {
+            $query->where('jenis_fasilitas', $jenis);
+        }
+        $peminjaman = $query->latest()->get();
 
-        // 2. Ambil data global approved HANYA yang sesuai dengan jenis menu saat ini (untuk kalender)
-        $peminjamanDisetujui = Peminjaman::where('status', 'disetujui')
-            ->where('jenis_fasilitas', $jenis)
+        // 2. Ambil data MOBIL yang disetujui untuk kalender
+        $dataMobil = Peminjaman::where('status', 'disetujui')
+            ->where('jenis_fasilitas', 'mobil')
             ->get()
             ->map(function ($item) {
                 return [
-                    'title' => '[' . ucfirst($item->jenis_fasilitas) . '] ' . $item->nama_item,
-                    'start' => $item->waktu_mulai->format('Y-m-d\TH:i:s'),
-                    'end'   => $item->waktu_selesai->format('Y-m-d\TH:i:s'),
-                    'color' => $item->jenis_fasilitas === 'mobil' ? '#0284c7' : '#f59e0b', 
+                    'title' => '🚗 ' . $item->nama_item,
+                    'start' => $item->waktu_mulai->toIso8601String(),
+                    'end'   => $item->waktu_selesai->toIso8601String(),
+                    'color' => '#0284c7',
+                    'extendedProps' => [
+                        'jenis' => 'mobil',
+                        'keperluan' => $item->keperluan
+                    ]
                 ];
             });
 
-        return view('customer.peminjaman.index', compact('peminjaman', 'peminjamanDisetujui', 'jenis'));
+        // 3. Ambil data RUANG yang disetujui untuk kalender
+        $dataRuang = Peminjaman::where('status', 'disetujui')
+            ->where('jenis_fasilitas', 'ruang')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'title' => '🏢 ' . $item->nama_item,
+                    'start' => $item->waktu_mulai->toIso8601String(),
+                    'end'   => $item->waktu_selesai->toIso8601String(),
+                    'color' => '#d97706',
+                    'extendedProps' => [
+                        'jenis' => 'ruang',
+                        'keperluan' => $item->keperluan
+                    ]
+                ];
+            });
+
+        $peminjamanDisetujui = array_merge($dataMobil->toArray(), $dataRuang->toArray());
+
+        return view('customer.peminjaman.index', compact('peminjaman', 'peminjamanDisetujui', 'dataMobil', 'dataRuang', 'jenis'));
     }
 
     public function store(Request $request)
