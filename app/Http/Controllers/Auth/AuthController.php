@@ -5,15 +5,14 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use App\Models\Peminjaman; // <--- Memastikan model ini yang dipakai secara konsisten
+use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
     public function showLogin()
     {
-        if (session()->has('auth_user')) {
-            return $this->redirectByRole(session('auth_user.role'));
+        if (Auth::check()) {
+            return $this->redirectByRole(Auth::user());
         }
 
         return view('auth.login');
@@ -29,84 +28,42 @@ class AuthController extends Controller
             'password.required' => 'Password wajib diisi.',
         ]);
 
-        $user = User::where('username', $request->username)
-                    ->orWhere('email', $request->username)
-                    ->first();
+        // Login bisa memakai username atau email
+        $field = filter_var($request->username, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (!Auth::attempt([$field => $request->username, 'password' => $request->password])) {
             return back()->withErrors([
                 'username' => 'Username/Email atau password salah.'
             ])->withInput();
         }
 
-        session([
-            'auth_user' => [
-                'id'       => $user->id,
-                'username' => $user->username,
-                'role'     => $user->role,
-            ]
-        ]);
+        $request->session()->regenerate();
 
-        return $this->redirectByRole($user->role);
+        return $this->redirectByRole(Auth::user());
     }
 
     public function logout(Request $request)
     {
-        // Bersihkan session kustom
-        $request->session()->forget('auth_user');
+        Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
         return redirect()->route('login')->with('success', 'Berhasil logout.');
     }
 
-    private function redirectByRole(string $role)
+    private function redirectByRole(User $user)
     {
-        return match ($role) {
-            'admin'    => redirect()->route('admin.dashboard'),
-            'customer' => redirect()->route('customer.dashboard'),
-            default    => redirect()->route('login'),
-        };
-    }
+        if ($user->hasRole('admin')) {
+            return redirect()->route('admin.dashboard');
+        }
 
-    // Method untuk menampilkan halaman depan publik berisi Kalender
-    public function showLanding()
-    {
-        // 1. Ambil jadwal MOBIL yang sudah disetujui admin menggunakan model Peminjaman
-        $jadwalMobil = Peminjaman::where('jenis_fasilitas', 'mobil')
-            ->where('status', 'disetujui')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'title' => '🚗 ' . $item->nama_item . ' (' . ($item->user->username ?? 'User') . ')',
-                    'start' => $item->waktu_mulai->toIso8601String(),
-                    'end' => $item->waktu_selesai->toIso8601String(),
-                    'backgroundColor' => '#0284c7', // Warna sky blue
-                    'extendedProps' => [
-                        'keperluan' => $item->keperluan,
-                        'user' => $item->user->username ?? 'Tidak Diketahui'
-                    ]
-                ];
-            });
+        if ($user->hasRole('customer')) {
+            return redirect()->route('customer.dashboard');
+        }
 
-        // 2. Ambil jadwal RUANG yang sudah disetujui admin menggunakan model Peminjaman
-        $jadwalRuang = Peminjaman::where('jenis_fasilitas', 'ruang')
-            ->where('status', 'disetujui')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'title' => '🏢 ' . $item->nama_item . ' (' . ($item->user->username ?? 'User') . ')',
-                    'start' => $item->waktu_mulai->toIso8601String(),
-                    'end' => $item->waktu_selesai->toIso8601String(),
-                    'backgroundColor' => '#d97706', // Warna amber
-                    'extendedProps' => [
-                        'keperluan' => $item->keperluan,
-                        'user' => $item->user->username ?? 'Tidak Diketahui'
-                    ]
-                ];
-            });
+        // Akun tanpa role tidak boleh tetap login (mencegah redirect berulang ke halaman login)
+        Auth::logout();
 
-        // Return ke file blade halaman depan (welcome)
-        return view('welcome', compact('jadwalMobil', 'jadwalRuang'));
+        return redirect()->route('login')->withErrors(['username' => 'Akun Anda belum memiliki role. Hubungi admin.']);
     }
 }

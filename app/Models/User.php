@@ -7,18 +7,19 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Notifications\Notifiable; // 💡 TAMBAHKAN INI
 use App\Models\TransaksiRequest;
 use App\Models\Riwayat;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
     // 💡 TAMBAHKAN Notifiable di dalam list use trait bawah ini
-    use HasUuids, Notifiable; 
+    use HasUuids, Notifiable, HasRoles;
 
     protected $table = 'users';
     protected $primaryKey = 'id';
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['name', 'username', 'password', 'role'];
+    protected $fillable = ['name', 'username', 'password'];
 
     protected $hidden = ['password'];
 
@@ -36,11 +37,11 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return $this->role === 'admin';
+        return $this->hasRole('admin');
     }
 
     public function isCustomer(): bool
     {
-        return $this->role === 'customer';
+        return $this->hasRole('customer');
     }
 }

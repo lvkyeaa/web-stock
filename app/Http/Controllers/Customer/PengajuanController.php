@@ -19,8 +19,7 @@ class PengajuanController extends Controller
         // 1. Ambil data keranjang session
         $keranjang = session()->get('keranjang', []);
         
-        // Ambil ID dari session kustom terlebih dahulu
-        $userId = session('auth_user.id') ?? Auth::id();
+        $userId = Auth::id();
         
         // 2. Ambil data riwayat berdasarkan ID user yang benar
         $riwayat = TransaksiRequest::with('details.barang')
@@ -35,7 +34,7 @@ class PengajuanController extends Controller
     // Jika di web.php memanggil fungsi history() secara terpisah
     public function history()
     {
-        $userId = session('auth_user.id') ?? Auth::id();
+        $userId = Auth::id();
 
         $riwayat = TransaksiRequest::with('details.barang')
                     ->where('user_id', $userId)
@@ -100,19 +99,13 @@ class PengajuanController extends Controller
     // 5. PROSES CHECKOUT (PINDAH SESSION KE DATABASE)
     public function checkout()
     {
-        // Cek login lewat session kustom jika Auth bawaan tidak dipakai
-        if (!session()->has('auth_user') && !Auth::check()) {
-            return redirect()->route('login')->with('error', 'Silakan login terlebih dahulu.');
-        }
-
         $keranjang = session()->get('keranjang', []);
 
         if (empty($keranjang)) {
             return redirect()->back()->with('error', 'Keranjang kamu masih kosong!');
         }
 
-        // Ambil ID dari session kustom, kalau kosong baru pakai Auth default
-        $userId = session('auth_user.id') ?? Auth::id(); 
+        $userId = Auth::id();
 
         try {
             DB::transaction(function () use ($keranjang, $userId) {
@@ -151,7 +144,7 @@ class PengajuanController extends Controller
     public function cetakPdf($id)
 {
     // Ambil data transaksi khusus milik customer yang sedang login
-    $userId = session('auth_user.id') ?? auth()->id();
+    $userId = auth()->id();
     
     $pengajuan = \App\Models\TransaksiRequest::with(['user', 'details.barang'])
         ->where('user_id', $userId)

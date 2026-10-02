@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Admin;
 use App\Http\Controllers\Customer;
+use App\Http\Controllers\BookingController;
 use Illuminate\Support\Facades\Route;
 
 // ─── 🔑 HALAMAN UTAMA / LOGIN ──────────────────────────────────
@@ -10,14 +11,31 @@ Route::get('/', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-// ─── 🌐 PORTAL MONITORING KALENDER ─────────────────────────────
-Route::get('/monitoring', [AuthController::class, 'showLanding'])->name('monitoring');
+// ─── 🚗 PEMINJAMAN FASILITAS (MOBIL / RUANG / ZOOM) — SATU ROUTE UNTUK SEMUA PERAN ───
+// Hak akses per peminjaman (milik sendiri, status, admin) dicek di BookingController
+Route::prefix('peminjaman')->name('peminjaman.')->group(function () {
+    // Kalender & daftar: bisa dilihat tanpa login (tamu tanpa aksi)
+    Route::get('/', [BookingController::class, 'index'])->name('index');
+    Route::get('/data', [BookingController::class, 'data'])->name('data');
+
+    Route::middleware(['auth', 'role:admin|customer'])->group(function () {
+        Route::post('/', [BookingController::class, 'store'])->name('store');
+        Route::put('/{id}', [BookingController::class, 'update'])->name('update');
+        Route::delete('/{id}', [BookingController::class, 'destroy'])->name('destroy');
+        Route::patch('/{id}/status', [BookingController::class, 'updateStatus'])->middleware('role:admin')->name('update-status');
+    });
+});
+
+// URL lama (tautan notifikasi tersimpan, bookmark) diarahkan ke halaman peminjaman, query string tetap
+foreach (['monitoring', 'admin/peminjaman', 'customer/peminjaman'] as $urlLama) {
+    Route::get($urlLama, fn () => redirect()->route('peminjaman.index', request()->query()));
+}
 
 
 // ─── 👨‍💼 ADMIN ROUTES ────────────────────────────────────────────────
 Route::prefix('admin')
     ->name('admin.')
-    ->middleware('role.admin')
+    ->middleware(['auth', 'role:admin'])
     ->group(function () {
 
         Route::get('/dashboard', [Admin\DashboardController::class, 'index'])->name('dashboard');
@@ -52,18 +70,13 @@ Route::prefix('admin')
             Route::delete('/{user}', [Admin\ManajemenUserController::class, 'destroy'])->name('destroy');
         });
 
-        // 🚗 VALIDASI & APPROVAL PEMINJAMAN (MOBIL/RUANG)
-        Route::prefix('peminjaman')->name('peminjaman.')->group(function () {
-            Route::get('/', [Admin\PeminjamanAdminController::class, 'index'])->name('index');
-            Route::patch('/{id}/status', [Admin\PeminjamanAdminController::class, 'updateStatus'])->name('update-status');
-        });
     });
 
 
 // ─── 🧑‍💻 CUSTOMER ROUTES ───────────────────────────────────────────
 Route::prefix('customer')
     ->name('customer.')
-    ->middleware('role.customer')
+    ->middleware(['auth', 'role:customer'])
     ->group(function () {
 
         Route::get('/dashboard', [Customer\DashboardController::class, 'index'])->name('dashboard');
@@ -89,9 +102,4 @@ Route::prefix('customer')
         // 📄 ROUTE CETAK PDF SISI CUSTOMER
         Route::get('/pengajuan/{id}/cetak-pdf', [Customer\PengajuanController::class, 'cetakPdf'])->name('pengajuan.cetak-pdf');
 
-        // 🏢 REQUEST PEMINJAMAN MOBIL & RUANG
-        Route::prefix('peminjaman')->name('peminjaman.')->group(function () {
-            Route::get('/{jenis}', [Customer\PeminjamanController::class, 'index'])->name('index');
-            Route::post('/', [Customer\PeminjamanController::class, 'store'])->name('store');
-        });
     });

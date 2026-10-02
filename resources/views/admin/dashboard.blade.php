@@ -8,7 +8,7 @@
             <div class="flex items-center justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-slate-500">Selamat datang kembali,</p>
-                    <h2 class="mt-1 text-xl font-semibold tracking-tight text-slate-900">{{ session('auth_user.username') }} 👋</h2>
+                    <h2 class="mt-1 text-xl font-semibold tracking-tight text-slate-900">{{ auth()->user()->username }} 👋</h2>
                     <p class="mt-1 text-sm text-slate-500">{{ now()->isoFormat('dddd, D MMMM Y') }}</p>
                 </div>
             </div>
@@ -173,7 +173,7 @@
                     <span class="text-[11px] font-semibold text-slate-600">User</span>
                 </a>
 
-                <a href="{{ route('admin.peminjaman.index') }}"
+                <a href="{{ route('peminjaman.index') }}"
                     class="flex flex-col items-center gap-2 rounded-xl border border-slate-200/70 bg-white p-3 transition hover:-translate-y-0.5 hover:shadow-sm">
                     <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-bps-blue/10 to-bps-orange/10">
                         <svg class="h-6 w-6 text-bps-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">

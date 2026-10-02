@@ -12,7 +12,7 @@ class RiwayatSeeder extends Seeder
     public function run(): void
     {
         $requests = \App\Models\TransaksiRequest::all();
-        $admin = \App\Models\User::where('role', 'admin')->first();
+        $admin = \App\Models\User::role('admin')->first();
 
         foreach ($requests as $req) {
             // Log saat pengajuan dibuat oleh user

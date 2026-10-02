@@ -14,8 +14,8 @@ class Peminjaman extends Model
 
     protected $fillable = [
         'user_id',
-        'nama_item',
-        'jenis_fasilitas',
+        'facility_request_id',
+        'facility_id',
         'waktu_mulai',
         'waktu_selesai',
         'keperluan',
@@ -31,5 +31,36 @@ class Peminjaman extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    // Fasilitas yang diberikan admin (kosong sampai disetujui)
+    public function facility()
+    {
+        return $this->belongsTo(Facility::class);
+    }
+
+    // Fasilitas yang diminta customer saat mengajukan
+    public function facilityRequest()
+    {
+        return $this->belongsTo(Facility::class, 'facility_request_id');
+    }
+
+    // Fasilitas untuk ditampilkan: yang diberikan admin jika ada, jika belum maka yang diminta
+    public function displayFacility(): Facility
+    {
+        return $this->facility ?? $this->facilityRequest;
+    }
+
+    // Warna sesuai jenis fasilitas, gaya sesuai status — dipakai kalender & daftar agar konsisten
+    public function statusStyle(): array
+    {
+        // Hanya garis tepi yang berwarna (warna jenis fasilitas); isi tetap putih.
+        // Garis solid = disetujui, putus-putus = menunggu (lihat CSS .booking-status-*)
+        $color = $this->displayFacility()->facilityType->color;
+
+        return match ($this->status) {
+            'disetujui', 'pending' => ['bg' => '#ffffff', 'border' => $color, 'text' => $color],
+            default                => ['bg' => '#ffffff', 'border' => '#cbd5e1', 'text' => '#94a3b8'],
+        };
     }
 }

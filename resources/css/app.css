@@ -24,3 +24,21 @@
     --color-bps-gray-dark: #6c757d;
     --font-bps: "Plus Jakarta Sans", sans-serif;
 }
+[x-cloak] { display: none !important; }
+
+/* Sidebar layout: laci geser di layar kecil, statis di desktop (dikendalikan Alpine di layout) */
+@media (max-width: 1023px) {
+    #sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 40;
+        background-color: #ffffff;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+    }
+    #sidebar.is-open { transform: translateX(0); }
+}
+@media (min-width: 1024px) {
+    #sidebar { transition: width 0.3s ease; }
+    #sidebar.is-collapsed { width: 0; overflow: hidden; border-right-width: 0; }
+}

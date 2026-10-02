@@ -12,7 +12,7 @@ class ManajemenUserController extends Controller
 {
     public function index()
     {
-        $users = User::latest()->paginate(10);
+        $users = User::with('roles')->latest()->paginate(10);
         return view('admin.manajemen-user.index', compact('users'));
     }
 
@@ -25,19 +25,19 @@ class ManajemenUserController extends Controller
             'role'     => 'required|in:admin,customer',
         ]);
 
-        User::create([
+        $user = User::create([
             'name'     => $request->name,
             'username' => $request->username,
             'password' => Hash::make($request->password),
-            'role'     => $request->role,
         ]);
+        $user->assignRole($request->role);
 
         return back()->with('success', 'User berhasil ditambahkan.');
     }
 
     public function destroy(User $user)
     {
-        if ($user->id === session('auth_user.id')) {
+        if ($user->id === auth()->id()) {
             return back()->with('error', 'Tidak dapat menghapus akun sendiri.');
         }
 
@@ -64,7 +64,6 @@ class ManajemenUserController extends Controller
         $data = [
             'name'     => $request->name,
             'username' => $request->username,
-            'role'     => $request->role,
         ];
 
         // Jalankan update password HANYA jika field password diisi oleh admin
@@ -73,17 +72,7 @@ class ManajemenUserController extends Controller
         }
 
         $user->update($data);
-
-        // Perbarui data session jika admin mengedit akunnya sendiri
-        if ($user->id === session('auth_user.id')) {
-            session([
-                'auth_user' => [
-                    'id'       => $user->id,
-                    'username' => $user->username,
-                    'role'     => $user->role,
-                ]
-            ]);
-        }
+        $user->syncRoles([$request->role]);
 
         return redirect()->back()->with('success', 'Data user berhasil diperbarui!');
     }
