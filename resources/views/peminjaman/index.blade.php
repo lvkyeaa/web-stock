@@ -1,6 +1,6 @@
-@extends($isAdmin ? 'layouts.admin' : 'layouts.customer')
+@extends($isGuest ? 'layouts.public' : ($isAdmin ? 'layouts.admin' : 'layouts.customer'))
 
-@section('title', $isAdmin ? 'Manajemen Persetujuan Peminjaman' : 'Peminjaman Fasilitas')
+@section('title', $isGuest ? 'Jadwal Fasilitas' : ($isAdmin ? 'Manajemen Persetujuan Peminjaman' : 'Peminjaman Fasilitas'))
 
 @section('content')
 @php
@@ -11,7 +11,7 @@
         'ditolak'   => 'M6 18L18 6M6 6l12 12',
     ];
 @endphp
-<div class="space-y-6" x-data="bookingPage(@js($initial + ['dataUrl' => route($routePrefix . '.peminjaman.data'), 'csrf' => csrf_token(), 'facilities' => $facilities]))"
+<div class="space-y-6" x-data="bookingPage(@js($initial + ['dataUrl' => route('peminjaman.data'), 'csrf' => csrf_token(), 'facilities' => $facilities]))"
     @booking-saved.window="bookingSaved($event.detail.message)">
 
     {{-- ─── CARD UTAMA KALENDER & DAFTAR PEMINJAMAN ─── --}}
@@ -27,7 +27,16 @@
                     <p class="text-xs text-gray-400">Pantau jadwal peminjaman mobil dinas dan ruang rapat</p>
                 </div>
 
-                {{-- 2. TOMBOL BUAT PEMINJAMAN --}}
+                {{-- 2. TOMBOL BUAT PEMINJAMAN (tamu: tautan masuk) --}}
+                @if($isGuest)
+                    <a href="{{ route('login') }}"
+                        class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white transition shadow-[0_8px_24px_-12px_rgba(0,61,130,0.8)]">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                        </svg>
+                        Masuk untuk meminjam
+                    </a>
+                @else
                 <button type="button" @click="$dispatch('open-booking-modal')"
                     class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white transition shadow-[0_8px_24px_-12px_rgba(0,61,130,0.8)] cursor-pointer">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -35,6 +44,7 @@
                     </svg>
                     Buat Peminjaman
                 </button>
+                @endif
             </div>
         </div>
 
@@ -61,6 +71,16 @@
         {{-- ─── FILTER (BERLAKU UNTUK KALENDER & DAFTAR, TANPA RELOAD HALAMAN) ─── --}}
         <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
             <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-end gap-3 w-full sm:w-auto">
+                {{-- Pencarian (dikirim ke server setelah berhenti mengetik) --}}
+                <div class="col-span-2 sm:w-64">
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Cari</label>
+                    <div class="relative">
+                        <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" /></svg>
+                        <input type="search" x-model="filters.q" @input.debounce.400ms="load()" maxlength="100"
+                            placeholder="Keperluan, pemohon, fasilitas…"
+                            class="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-bps-blue focus:ring-4 focus:ring-bps-blue/10">
+                    </div>
+                </div>
                 <div>
                     <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Jenis Fasilitas</label>
                     <select x-model="filters.type" @change="load()"
@@ -81,19 +101,17 @@
                         <option value="ditolak">Ditolak</option>
                     </select>
                 </div>
-                <button type="button" x-show="filters.type || filters.status" x-cloak @click="resetFilters()"
+                @unless($isGuest)
+                    {{-- Peminjaman saya --}}
+                    <label class="col-span-2 sm:col-auto flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold cursor-pointer select-none transition"
+                        :class="filters.mine ? 'bg-bps-blue-dark border-bps-blue-dark text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'">
+                        <input type="checkbox" x-model="filters.mine" @change="load()" class="sr-only">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                        Peminjaman saya
+                    </label>
+                @endunless
+                <button type="button" x-show="filters.type || filters.status || filters.q || filters.mine" x-cloak @click="resetFilters()"
                     class="col-span-2 justify-self-start px-3 py-2 text-xs font-semibold text-gray-500 hover:text-gray-800 cursor-pointer">Reset</button>
-            </div>
-
-            {{-- LEGENDA (SAMA UNTUK KALENDER & DAFTAR): warna = jenis, gaya = status --}}
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] font-medium text-gray-500">
-                @foreach($types as $facilityType)
-                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-white border-2" style="border-color:{{ $facilityType->color }}"></span>{{ $facilityType->name }}</span>
-                @endforeach
-                <span class="w-px h-4 bg-gray-200"></span>
-                <span class="booking-badge booking-status-disetujui" style="background:#ffffff;border-color:#475569;color:#475569"><svg class="booking-status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="{{ $statusIcons['disetujui'] }}"/></svg>Disetujui</span>
-                <span class="booking-badge booking-status-pending" style="background:#ffffff;border-color:#475569;color:#475569"><svg class="booking-status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="{{ $statusIcons['pending'] }}"/></svg>Menunggu</span>
-                <span class="booking-badge booking-status-ditolak" style="background:#ffffff;border-color:#cbd5e1;color:#94a3b8"><svg class="booking-status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="{{ $statusIcons['ditolak'] }}"/></svg>Ditolak</span>
             </div>
         </div>
 
@@ -124,6 +142,18 @@
 
         <div x-show="error" x-cloak x-text="error" class="mb-4 bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm font-medium"></div>
         <div x-show="notice" x-cloak x-text="notice" class="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm font-medium"></div>
+
+        {{-- ─── LEGENDA: menempel di atas kalender (dan di atas daftar); warna = jenis, gaya = status ─── --}}
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 bg-slate-50 border border-slate-200 text-[11px] font-medium text-gray-500"
+            :class="tab === 'calendar' ? 'rounded-t-xl border-b-0' : 'rounded-xl mb-3'">
+            @foreach($types as $facilityType)
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-white border-2" style="border-color:{{ $facilityType->color }}"></span>{{ $facilityType->name }}</span>
+            @endforeach
+            <span class="w-px h-4 bg-gray-200"></span>
+            <span class="booking-badge booking-status-disetujui" style="background:#ffffff;border-color:#475569;color:#475569"><svg class="booking-status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="{{ $statusIcons['disetujui'] }}"/></svg>Disetujui</span>
+            <span class="booking-badge booking-status-pending" style="background:#ffffff;border-color:#475569;color:#475569"><svg class="booking-status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="{{ $statusIcons['pending'] }}"/></svg>Menunggu</span>
+            <span class="booking-badge booking-status-ditolak" style="background:#ffffff;border-color:#cbd5e1;color:#94a3b8"><svg class="booking-status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="{{ $statusIcons['ditolak'] }}"/></svg>Ditolak</span>
+        </div>
 
         {{-- ─── TAB 1: KALENDER ─── --}}
         <div x-show="tab === 'calendar'">
@@ -166,6 +196,7 @@
                             <div class="text-red-600" x-text="'Selesai: ' + b.end_label"></div>
                         </div>
                         <p class="text-xs text-gray-600 break-words" x-text="b.keperluan || '-'"></p>
+                        @unless($isGuest)
                         <div class="flex gap-2 pt-1" x-show="{{ $isAdmin ? 'true' : 'b.can_edit || b.can_delete' }}">
                             <button type="button" x-show="b.can_edit" @click="editBooking(b)"
                                 class="flex-1 py-2 flex items-center justify-center gap-1.5 text-bps-blue-dark bg-white border border-slate-300 hover:bg-slate-50 text-xs font-semibold rounded-xl shadow-sm cursor-pointer">
@@ -185,6 +216,7 @@
                                 </button>
                             @endif
                         </div>
+                        @endunless
                     </div>
                 </template>
                 <p x-show="!loading && listBookings.length === 0" class="text-center py-12 text-sm text-gray-400">Tidak ada peminjaman fasilitas pada periode ini.</p>
@@ -220,7 +252,9 @@
                                     Status <span class="text-[10px]" x-text="sortIcon('status')"></span>
                                 </button>
                             </th>
-                            <th class="p-3 text-center">Aksi</th>
+                            @unless($isGuest)
+                                <th class="p-3 text-center">Aksi</th>
+                            @endunless
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 text-sm">
@@ -246,6 +280,7 @@
                                         <span x-html="statusIcon(b.status)"></span><span x-text="statusLabel[b.status]"></span>
                                     </span>
                                 </td>
+                                @unless($isGuest)
                                 <td class="p-3">
                                     {{-- Tombol ikon ringkas; label tampil sebagai tooltip --}}
                                     <div class="flex items-center justify-center gap-1.5">
@@ -268,10 +303,11 @@
                                     @endunless
                                     </div>
                                 </td>
+                                @endunless
                             </tr>
                         </template>
                         <tr x-show="!loading && listBookings.length === 0">
-                            <td colspan="6" class="text-center py-12 text-gray-400">Tidak ada peminjaman fasilitas pada periode ini.</td>
+                            <td colspan="{{ $isGuest ? 5 : 6 }}" class="text-center py-12 text-gray-400">Tidak ada peminjaman fasilitas pada periode ini.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -399,12 +435,15 @@
         </div>
     </div>
 
+    @unless($isGuest)
     {{-- ─── MODAL FORM BUAT / EDIT PEMINJAMAN (PILIH JENIS → ISI FORM) ─── --}}
     <div x-data="bookingForm(@js([
             'facilities' => $facilities,
             'types'      => $types->keyBy('code')->map->only(['name', 'icon', 'color']),
-            'storeUrl'   => route($routePrefix . '.peminjaman.store'),
+            'storeUrl'   => route('peminjaman.store'),
             'csrf'       => csrf_token(),
+            'serverNow'  => now()->getTimestampMs(), // jam server saat halaman dibuka
+            'timezone'   => config('app.timezone'),
         ]))"
         @open-booking-modal.window="openForm($event.detail)"
         @keydown.escape.window="open = false"
@@ -482,7 +521,7 @@
                     {{-- 2. WAKTU MULAI --}}
                     <div>
                         <label class="block text-xs font-bold text-gray-700 uppercase mb-1" x-text="jenis === 'car' ? 'Waktu Berangkat' : 'Waktu Mulai Rapat'"></label>
-                        <input type="datetime-local" name="waktu_mulai" required x-model="mulai" @input="clearError('waktu_mulai')"
+                        <input type="datetime-local" name="waktu_mulai" required x-model="mulai" @input="clearError('waktu_mulai')" :min="minMulai"
                             :class="errors.waktu_mulai ? 'border-red-500' : 'border-gray-300'"
                             class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:border-bps-blue focus:ring-4 focus:ring-bps-blue/10">
                         <span x-show="errors.waktu_mulai" x-text="errors.waktu_mulai && errors.waktu_mulai[0]" class="text-xs text-red-500 font-semibold mt-1 block"></span>
@@ -520,6 +559,7 @@
             </template>
         </div>
     </div>
+    @endunless
 </div>
 
 {{-- SCRIPT INSTANSIASIONAL FULLCALENDAR --}}
@@ -549,6 +589,8 @@
             selesai: '',
             keperluan: '',
             editUrl: null,    // terisi = mode edit
+            minMulai: '',     // batas minimal waktu mulai = hari ini 00:00 menurut tanggal server (jam tidak dibatasi)
+            selisihJam: config.serverNow - Date.now(), // koreksi jika jam perangkat berbeda dengan server
             saving: false,
             errors: {},       // { field: [pesan] } dari validasi server
             conflicts: [],    // peminjaman disetujui yang bentrok
@@ -563,8 +605,17 @@
                 this.mulai = b ? b.waktu_mulai : '';
                 this.selesai = b ? b.waktu_selesai : '';
                 this.keperluan = b ? (b.keperluan || '') : '';
+                this.minMulai = this.serverToday() + 'T00:00';
                 this.resetErrors();
                 this.open = true;
+            },
+
+            // Tanggal hari ini menurut server, dalam zona waktu server (YYYY-MM-DD)
+            serverToday() {
+                const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+                    timeZone: config.timezone, year: 'numeric', month: '2-digit', day: '2-digit',
+                }).formatToParts(new Date(Date.now() + this.selisihJam)).map(p => [p.type, p.value]));
+                return `${parts.year}-${parts.month}-${parts.day}`;
             },
 
             resetErrors() {
@@ -636,7 +687,7 @@
 
         return {
             tab: config.tab,
-            filters: { type: config.type, status: config.status },
+            filters: { type: config.type, status: config.status, q: config.q, mine: config.mine },
             mode: config.mode,
             title: '',
             range: null,      // rentang yang tampil di kalender (termasuk tanggal bulan lain di tampilan bulan)
@@ -708,6 +759,8 @@
                     timeZone: 'local',
                     headerToolbar: false, // diganti toolbar periode bersama di atas
                     eventDisplay: 'block',
+                    // Tampilan bulan: tampilkan jam selesai juga (09:00 - 11:00)
+                    views: { dayGridMonth: { displayEventEnd: true } },
                     // Isi item: jam + ikon status + judul (judul lewat textContent agar aman)
                     eventContent: function(arg) {
                         const wrap = document.createElement('div');
@@ -790,6 +843,8 @@
                 const params = new URLSearchParams({ start: this.range.start, end: this.range.end });
                 if (this.filters.type) params.set('type', this.filters.type);
                 if (this.filters.status) params.set('status', this.filters.status);
+                if (this.filters.q.trim()) params.set('q', this.filters.q.trim());
+                if (this.filters.mine) params.set('mine', '1');
 
                 try {
                     const response = await fetch(`${config.dataUrl}?${params}`, { headers: { 'Accept': 'application/json' } });
@@ -943,7 +998,7 @@
             },
 
             resetFilters() {
-                this.filters = { type: '', status: '' };
+                this.filters = { type: '', status: '', q: '', mine: false };
                 this.load();
             },
 
@@ -953,6 +1008,8 @@
                 if (this.tab === 'list') params.set('view', 'list');
                 if (this.filters.type) params.set('type', this.filters.type);
                 if (this.filters.status) params.set('status', this.filters.status);
+                if (this.filters.q.trim()) params.set('q', this.filters.q.trim());
+                if (this.filters.mine) params.set('mine', '1');
                 params.set('mode', this.mode);
                 params.set('date', toDateParam(calendar.getDate()));
                 history.replaceState(null, '', `${location.pathname}?${params}`);
@@ -963,7 +1020,7 @@
 
 <style>
     [x-cloak] { display: none !important; }
-    .fc { font-family: inherit; }
+    .fc { font-family: inherit; --fc-border-color: #e2e8f0; } /* sama dengan garis strip legenda */
     .period-btn { display: inline-flex; align-items: center; justify-content: center; height: 32px; min-width: 32px; border-radius: 8px; background: #043264; color: #fff; font-size: 11px; font-weight: 600; cursor: pointer; transition: background-color .15s; }
     .period-btn:hover { background: #05417c; }
     .fc-event { border-radius: 6px; padding: 3px 6px; font-size: 11px; font-weight: 500; cursor: pointer; }

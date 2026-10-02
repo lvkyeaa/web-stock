@@ -18,7 +18,10 @@ class BookingController extends Controller
 {
     public function index(Request $request)
     {
-        $isAdmin = User::find(Auth::id())->hasRole('admin');
+        $user = User::find(Auth::id());
+
+        $isGuest = !$user; // tamu: hanya melihat kalender & daftar, tanpa aksi
+        $isAdmin = $user?->hasRole('admin') ?? false;
 
         // Hanya kerangka halaman; data peminjaman diambil lewat data() (JSON)
         $types = FacilityType::orderBy('name')->get();
@@ -33,6 +36,8 @@ class BookingController extends Controller
             'tab'    => $request->view === 'list' ? 'list' : 'calendar',
             'type'   => $types->contains('code', $request->type) ? $request->type : '',
             'status' => in_array($request->status, ['pending', 'disetujui', 'ditolak']) ? $request->status : '',
+            'q'      => mb_substr(trim((string) $request->q), 0, 100),
+            'mine'   => !$isGuest && $request->boolean('mine'),
             'mode'   => $request->mode === 'month' ? 'month' : 'week',
             'date'   => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->date) ? $request->date : null,
         ];
@@ -42,7 +47,7 @@ class BookingController extends Controller
             'types'      => $types,
             'initial'    => $initial,
             'isAdmin'    => $isAdmin,
-            'routePrefix' => $isAdmin ? 'admin' : 'customer',
+            'isGuest'    => $isGuest,
         ]);
     }
 
@@ -54,9 +59,13 @@ class BookingController extends Controller
             'end'    => 'required|date|after:start',
             'type'   => 'nullable|string',
             'status' => 'nullable|in:pending,disetujui,ditolak',
+            'q'      => 'nullable|string|max:100',
+            'mine'   => 'nullable|boolean',
         ]);
 
-        $isAdmin = User::find(Auth::id())->hasRole('admin');
+        $user = User::find(Auth::id());
+        $isGuest = !$user; // dipanggil dari halaman publik /monitoring
+        $isAdmin = $user?->hasRole('admin') ?? false;
 
         // Periode dari kalender membawa offset zona waktu browser; samakan dengan zona waktu aplikasi
         $start = Carbon::parse($request->start)->setTimezone(config('app.timezone'));
@@ -66,6 +75,18 @@ class BookingController extends Controller
             // Jenis fasilitas yang diberikan selalu sama dengan yang diminta, jadi filter lewat permintaan
             ->when($request->type, fn($query) => $query->whereRelation('facilityRequest.facilityType', 'code', $request->type))
             ->when($request->status, fn($query) => $query->where('status', $request->status))
+            // Peminjaman saya: hanya milik pengguna yang login (diabaikan untuk tamu)
+            ->when($user && $request->boolean('mine'), fn($query) => $query->where('user_id', $user->id))
+            // Pencarian: keperluan, nama / username pemohon, nama fasilitas (diminta maupun diberikan)
+            ->when(trim((string) $request->q) !== '', function ($query) use ($request) {
+                $kata = '%' . trim($request->q) . '%';
+                $query->where(function ($q) use ($kata) {
+                    $q->where('keperluan', 'like', $kata)
+                        ->orWhereHas('user', fn($u) => $u->where('username', 'like', $kata)->orWhere('name', 'like', $kata))
+                        ->orWhereHas('facilityRequest', fn($f) => $f->where('name', 'like', $kata))
+                        ->orWhereHas('facility', fn($f) => $f->where('name', 'like', $kata));
+                });
+            })
             ->where('waktu_mulai', '<', $end)
             ->where('waktu_selesai', '>', $start)
             ->orderBy('waktu_mulai')
@@ -84,13 +105,13 @@ class BookingController extends Controller
                 'keperluan'   => $item->keperluan,
                 'status'      => $item->status,
                 'style'       => $item->statusStyle(), // warna sama untuk item kalender & badge daftar
-                'status_url'  => $isAdmin ? route('admin.peminjaman.update-status', $item->id) : null,
-                'can_edit'    => $this->bisaDiedit($item), // peminjaman milik sendiri yang menunggu / ditolak
-                'can_delete'  => $isAdmin || $this->bisaDiedit($item), // admin: semua; customer: sama dengan aturan edit
-                'delete_url'  => route(($isAdmin ? 'admin' : 'customer') . '.peminjaman.destroy', $item->id),
+                'status_url'  => $isAdmin ? route('peminjaman.update-status', $item->id) : null,
+                'can_edit'    => !$isGuest && $this->bisaDiedit($item), // peminjaman milik sendiri yang menunggu / ditolak
+                'can_delete'  => $isAdmin || (!$isGuest && $this->bisaDiedit($item)), // admin: semua; customer: sama dengan aturan edit
+                'delete_url'  => $isGuest ? null : route('peminjaman.destroy', $item->id),
                 // Nilai awal form edit (format input datetime-local)
                 'edit'        => [
-                    'url'         => route(($isAdmin ? 'admin' : 'customer') . '.peminjaman.update', $item->id),
+                    'url'         => $isGuest ? null : route('peminjaman.update', $item->id),
                     'type'        => $item->facilityRequest->facilityType->code,
                     'facility_request_id' => $item->facility_request_id,
                     'waktu_mulai' => $item->waktu_mulai->format('Y-m-d\TH:i'),
@@ -258,7 +279,7 @@ class BookingController extends Controller
 
     private function validasiPeminjaman(Request $request): void
     {
-        // Perbaikan Validasi: Mengubah after:now menjadi after_or_equal:today agar toleran terhadap timezone
+        // Tanggal mulai tidak boleh sebelum hari ini menurut server (jam diabaikan; zona waktu aplikasi: config app.timezone)
         $request->validate([
             'facility_request_id' => 'required|exists:facilities,id',
             'waktu_mulai' => 'required|date|after_or_equal:today',
@@ -277,6 +298,7 @@ class BookingController extends Controller
             'keperluan' => 'required|string',
         ], [
             'keperluan.required' => 'Keperluan wajib diisi.',
+            'waktu_mulai.after_or_equal' => 'Tanggal mulai tidak boleh sebelum hari ini.',
         ]);
     }
 

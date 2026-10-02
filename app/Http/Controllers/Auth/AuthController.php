@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Peminjaman; // <--- Memastikan model ini yang dipakai secara konsisten
 
 class AuthController extends Controller
 {
@@ -66,46 +65,5 @@ class AuthController extends Controller
         Auth::logout();
 
         return redirect()->route('login')->withErrors(['username' => 'Akun Anda belum memiliki role. Hubungi admin.']);
-    }
-
-    // Method untuk menampilkan halaman depan publik berisi Kalender
-    public function showLanding()
-    {
-        // 1. Ambil jadwal MOBIL yang sudah disetujui admin menggunakan model Peminjaman
-        $jadwalMobil = Peminjaman::with(['user', 'facility'])->whereRelation('facility.facilityType', 'code', 'car')
-            ->where('status', 'disetujui')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'title' => '🚗 ' . $item->facility->name . ' (' . ($item->user->username ?? 'User') . ')',
-                    'start' => $item->waktu_mulai->toIso8601String(),
-                    'end' => $item->waktu_selesai->toIso8601String(),
-                    'backgroundColor' => '#0284c7', // Warna sky blue
-                    'extendedProps' => [
-                        'keperluan' => $item->keperluan,
-                        'user' => $item->user->username ?? 'Tidak Diketahui'
-                    ]
-                ];
-            });
-
-        // 2. Ambil jadwal RUANG yang sudah disetujui admin menggunakan model Peminjaman
-        $jadwalRuang = Peminjaman::with(['user', 'facility'])->whereRelation('facility.facilityType', 'code', 'room')
-            ->where('status', 'disetujui')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'title' => '🏢 ' . $item->facility->name . ' (' . ($item->user->username ?? 'User') . ')',
-                    'start' => $item->waktu_mulai->toIso8601String(),
-                    'end' => $item->waktu_selesai->toIso8601String(),
-                    'backgroundColor' => '#d97706', // Warna amber
-                    'extendedProps' => [
-                        'keperluan' => $item->keperluan,
-                        'user' => $item->user->username ?? 'Tidak Diketahui'
-                    ]
-                ];
-            });
-
-        // Return ke file blade halaman depan (welcome)
-        return view('welcome', compact('jadwalMobil', 'jadwalRuang'));
     }
 }

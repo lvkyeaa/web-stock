@@ -11,8 +11,25 @@ Route::get('/', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-// ─── 🌐 PORTAL MONITORING KALENDER ─────────────────────────────
-Route::get('/monitoring', [AuthController::class, 'showLanding'])->name('monitoring');
+// ─── 🚗 PEMINJAMAN FASILITAS (MOBIL / RUANG / ZOOM) — SATU ROUTE UNTUK SEMUA PERAN ───
+// Hak akses per peminjaman (milik sendiri, status, admin) dicek di BookingController
+Route::prefix('peminjaman')->name('peminjaman.')->group(function () {
+    // Kalender & daftar: bisa dilihat tanpa login (tamu tanpa aksi)
+    Route::get('/', [BookingController::class, 'index'])->name('index');
+    Route::get('/data', [BookingController::class, 'data'])->name('data');
+
+    Route::middleware(['auth', 'role:admin|customer'])->group(function () {
+        Route::post('/', [BookingController::class, 'store'])->name('store');
+        Route::put('/{id}', [BookingController::class, 'update'])->name('update');
+        Route::delete('/{id}', [BookingController::class, 'destroy'])->name('destroy');
+        Route::patch('/{id}/status', [BookingController::class, 'updateStatus'])->middleware('role:admin')->name('update-status');
+    });
+});
+
+// URL lama (tautan notifikasi tersimpan, bookmark) diarahkan ke halaman peminjaman, query string tetap
+foreach (['monitoring', 'admin/peminjaman', 'customer/peminjaman'] as $urlLama) {
+    Route::get($urlLama, fn () => redirect()->route('peminjaman.index', request()->query()));
+}
 
 
 // ─── 👨‍💼 ADMIN ROUTES ────────────────────────────────────────────────
@@ -53,15 +70,6 @@ Route::prefix('admin')
             Route::delete('/{user}', [Admin\ManajemenUserController::class, 'destroy'])->name('destroy');
         });
 
-        // 🚗 VALIDASI & APPROVAL PEMINJAMAN (MOBIL/RUANG)
-        Route::prefix('peminjaman')->name('peminjaman.')->group(function () {
-            Route::get('/', [BookingController::class, 'index'])->name('index');
-            Route::get('/data', [BookingController::class, 'data'])->name('data');
-            Route::post('/', [BookingController::class, 'store'])->name('store');
-            Route::put('/{id}', [BookingController::class, 'update'])->name('update');
-            Route::delete('/{id}', [BookingController::class, 'destroy'])->name('destroy');
-            Route::patch('/{id}/status', [BookingController::class, 'updateStatus'])->name('update-status');
-        });
     });
 
 
@@ -94,12 +102,4 @@ Route::prefix('customer')
         // 📄 ROUTE CETAK PDF SISI CUSTOMER
         Route::get('/pengajuan/{id}/cetak-pdf', [Customer\PengajuanController::class, 'cetakPdf'])->name('pengajuan.cetak-pdf');
 
-        // 🏢 REQUEST PEMINJAMAN FASILITAS (MOBIL & RUANG)
-        Route::prefix('peminjaman')->name('peminjaman.')->group(function () {
-            Route::get('/', [BookingController::class, 'index'])->name('index');
-            Route::get('/data', [BookingController::class, 'data'])->name('data');
-            Route::post('/', [BookingController::class, 'store'])->name('store');
-            Route::put('/{id}', [BookingController::class, 'update'])->name('update');
-            Route::delete('/{id}', [BookingController::class, 'destroy'])->name('destroy');
-        });
     });

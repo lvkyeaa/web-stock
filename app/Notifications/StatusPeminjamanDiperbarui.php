@@ -29,7 +29,7 @@ class StatusPeminjamanDiperbarui extends Notification
         return [
             'peminjaman_id' => $this->peminjaman->id,
             'pesan' => 'Pengajuan peminjaman ' . $this->peminjaman->displayFacility()->name . ' Anda telah ' . $statusText,
-            'url' => route('customer.peminjaman.index', ['type' => $this->peminjaman->facilityRequest->facilityType->code]),
+            'url' => route('peminjaman.index', ['type' => $this->peminjaman->facilityRequest->facilityType->code]),
         ];
     }
 }
