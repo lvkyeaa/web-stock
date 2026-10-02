@@ -12,10 +12,11 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 
-<body class="bg-bps-cream-bg font-[Plus_Jakarta_Sans] flex h-screen overflow-hidden">
+<body class="bg-bps-cream-bg font-[Plus_Jakarta_Sans] flex h-dvh overflow-hidden"
+    x-data="{ sidebarOpen: false, sidebarCollapsed: false }" @keydown.escape.window="sidebarOpen = false">
 
     {{-- SIDEBAR --}}
-    <aside id="sidebar" class="w-64 bg-white/85 backdrop-blur-xl text-slate-700 flex flex-col flex-shrink-0 border-r border-slate-200/70 shadow-[0_20px_50px_-25px_rgba(15,23,42,0.2)]">
+    <aside id="sidebar" :class="{ 'is-open': sidebarOpen, 'is-collapsed': sidebarCollapsed }" class="w-64 bg-white/85 backdrop-blur-xl text-slate-700 flex flex-col flex-shrink-0 border-r border-slate-200/70 shadow-[0_20px_50px_-25px_rgba(15,23,42,0.2)]">
         {{-- Brand --}}
         <div class="px-6 py-5 border-b border-slate-200/70">
             <div class="flex items-center gap-3">
@@ -28,6 +29,10 @@
                     <p class="text-[11px] font-bold text-bps-orange uppercase tracking-[0.01em] leading-tight">BPS Provinsi Jawa Timur</p>
                     <p class="text-[10px] font-medium leading-tight text-slate-500 mt-0.5">Sistem Manajemen Persediaan</p>
                 </div>
+                {{-- Tutup sidebar (hanya di layar kecil) --}}
+                <button type="button" @click="sidebarOpen = false" class="lg:hidden ml-auto p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 cursor-pointer" aria-label="Tutup menu">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
             </div>
         </div>
 
@@ -94,20 +99,34 @@
         </div>
     </aside>
 
-    <div class="flex-1 flex flex-col overflow-hidden">
+    {{-- Latar gelap saat sidebar terbuka di layar kecil --}}
+    <div x-show="sidebarOpen" x-cloak x-transition.opacity @click="sidebarOpen = false"
+        class="fixed inset-0 z-30 bg-slate-900/40 lg:hidden"></div>
+
+    <div class="flex-1 min-w-0 flex flex-col overflow-hidden">
         {{-- NAVBAR --}}
         <header
-            class="h-16 bg-white/90 backdrop-blur-xl border-b border-slate-200/70 flex items-center justify-between px-6 flex-shrink-0 shadow-sm">
-            <div>
-                <h1 class="text-sm font-bold text-bps-blue-dark">@yield('title', 'Dashboard')</h1>
-                <p class="text-xs text-gray-400">Badan Pusat Statistik</p>
+            class="h-16 bg-white/90 backdrop-blur-xl border-b border-slate-200/70 flex items-center justify-between gap-3 px-4 sm:px-6 flex-shrink-0 shadow-sm">
+            <div class="flex items-center gap-3 min-w-0">
+                {{-- Tombol buka menu (hanya di layar kecil) --}}
+                <button type="button" aria-label="Menu" @click="sidebarOpen = true"
+                    class="lg:hidden p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 cursor-pointer flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+                <div class="min-w-0">
+                    <h1 class="text-sm font-bold text-bps-blue-dark truncate">@yield('title', 'Dashboard')</h1>
+                    <p class="text-xs text-gray-400 hidden sm:block">Badan Pusat Statistik</p>
+                </div>
             </div>
 
             <div class="flex items-center gap-3">
                 
                 {{-- ─── 💡 REAL-TIME NOTIFIKASI STATUS UNTUK CUSTOMER ─── --}}
                 @php
-                    $notifCustomer = \App\Models\Peminjaman::where('user_id', session('auth_user.id'))
+                    $notifCustomer = \App\Models\Peminjaman::with(['facility.facilityType', 'facilityRequest.facilityType'])->where('user_id', auth()->id())
                                         ->whereIn('status', ['disetujui', 'ditolak'])
                                         ->latest()
                                         ->take(5)
@@ -153,7 +172,7 @@
                          x-transition:leave="transition ease-in duration-75"
                          x-transition:leave-start="transform opacity-100 scale-100"
                          x-transition:leave-end="transform opacity-0 scale-95"
-                         class="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 max-h-96 overflow-y-auto"
+                         class="fixed inset-x-4 top-16 sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-80 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 max-h-96 overflow-y-auto"
                          style="display: none;">
                         
                         <div class="px-4 py-2 font-bold text-xs text-gray-700 border-b border-gray-100 uppercase tracking-wider flex justify-between items-center">
@@ -171,7 +190,7 @@
                                 </button>
 
                                 <p class="leading-normal text-gray-800">
-                                    Pengajuan pinjam <span class="font-semibold capitalize text-bps-blue-dark">{{ $item->jenis_fasilitas }}</span> (<b>{{ $item->nama_item }}</b>) Anda telah 
+                                    Pengajuan pinjam <span class="font-semibold text-bps-blue-dark">{{ $item->displayFacility()->facilityType->label() }}</span> (<b>{{ $item->displayFacility()->name }}</b>) Anda telah
                                     @if($item->status === 'disetujui')
                                         <span class="text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded text-[10px]">DISETUJUI</span>
                                     @else
@@ -194,20 +213,20 @@
                 </div>
 
                 {{-- Profile --}}
-                <div class="flex items-center gap-2 pl-3 border-l border-gray-200">
+                <div class="flex items-center gap-2 pl-3 border-l border-gray-200 flex-shrink-0">
                     <div class="w-8 h-8 rounded-xl bg-bps-orange flex items-center justify-center shadow-sm">
                         <span
-                            class="text-white text-xs font-bold uppercase">{{ substr(session('auth_user.username', 'C'), 0, 1) }}</span>
+                            class="text-white text-xs font-bold uppercase">{{ substr(auth()->user()->username, 0, 1) }}</span>
                     </div>
                     <div class="hidden sm:block">
-                        <p class="text-xs font-bold text-gray-800">{{ session('auth_user.username') }}</p>
-                        <p class="text-xs text-bps-orange font-semibold capitalize">{{ session('auth_user.role') }}</p>
+                        <p class="text-xs font-bold text-gray-800">{{ auth()->user()->username }}</p>
+                        <p class="text-xs text-bps-orange font-semibold capitalize">{{ auth()->user()->getRoleNames()->first() }}</p>
                     </div>
                 </div>
             </div>
         </header>
 
-        <main class="flex-1 overflow-y-auto p-6">
+        <main class="flex-1 overflow-y-auto p-4 sm:p-6">
             @if (session('success'))
                 <div
                     class="mb-4 p-4 rounded-xl bg-green-50 border border-green-200 text-green-800 text-sm flex items-center gap-2">

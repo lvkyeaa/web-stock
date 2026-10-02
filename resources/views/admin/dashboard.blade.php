@@ -8,7 +8,7 @@
             <div class="flex items-center justify-between gap-4">
                 <div>
                     <p class="text-sm font-medium text-slate-500">Selamat datang kembali,</p>
-                    <h2 class="mt-1 text-xl font-semibold tracking-tight text-slate-900">{{ session('auth_user.username') }} 👋</h2>
+                    <h2 class="mt-1 text-xl font-semibold tracking-tight text-slate-900">{{ auth()->user()->username }} 👋</h2>
                     <p class="mt-1 text-sm text-slate-500">{{ now()->isoFormat('dddd, D MMMM Y') }}</p>
                 </div>
             </div>

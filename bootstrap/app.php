@@ -11,9 +11,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
-            'auth.custom'  => \App\Http\Middleware\AuthenticateCustom::class,
-            'role.admin'   => \App\Http\Middleware\AdminMiddleware::class,
-            'role.customer'=> \App\Http\Middleware\CustomerMiddleware::class,
+            'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

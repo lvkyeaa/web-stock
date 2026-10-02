@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Admin;
 use App\Http\Controllers\Customer;
+use App\Http\Controllers\BookingController;
 use Illuminate\Support\Facades\Route;
 
 // ─── 🔑 HALAMAN UTAMA / LOGIN ──────────────────────────────────
@@ -17,7 +18,7 @@ Route::get('/monitoring', [AuthController::class, 'showLanding'])->name('monitor
 // ─── 👨‍💼 ADMIN ROUTES ────────────────────────────────────────────────
 Route::prefix('admin')
     ->name('admin.')
-    ->middleware('role.admin')
+    ->middleware(['auth', 'role:admin'])
     ->group(function () {
 
         Route::get('/dashboard', [Admin\DashboardController::class, 'index'])->name('dashboard');
@@ -54,8 +55,11 @@ Route::prefix('admin')
 
         // 🚗 VALIDASI & APPROVAL PEMINJAMAN (MOBIL/RUANG)
         Route::prefix('peminjaman')->name('peminjaman.')->group(function () {
-            Route::get('/', [Admin\PeminjamanAdminController::class, 'index'])->name('index');
-            Route::patch('/{id}/status', [Admin\PeminjamanAdminController::class, 'updateStatus'])->name('update-status');
+            Route::get('/', [BookingController::class, 'index'])->name('index');
+            Route::get('/data', [BookingController::class, 'data'])->name('data');
+            Route::post('/', [BookingController::class, 'store'])->name('store');
+            Route::put('/{id}', [BookingController::class, 'update'])->name('update');
+            Route::patch('/{id}/status', [BookingController::class, 'updateStatus'])->name('update-status');
         });
     });
 
@@ -63,7 +67,7 @@ Route::prefix('admin')
 // ─── 🧑‍💻 CUSTOMER ROUTES ───────────────────────────────────────────
 Route::prefix('customer')
     ->name('customer.')
-    ->middleware('role.customer')
+    ->middleware(['auth', 'role:customer'])
     ->group(function () {
 
         Route::get('/dashboard', [Customer\DashboardController::class, 'index'])->name('dashboard');
@@ -91,7 +95,9 @@ Route::prefix('customer')
 
         // 🏢 REQUEST PEMINJAMAN FASILITAS (MOBIL & RUANG)
         Route::prefix('peminjaman')->name('peminjaman.')->group(function () {
-            Route::get('/{jenis?}', [Customer\PeminjamanController::class, 'index'])->name('index');
-            Route::post('/', [Customer\PeminjamanController::class, 'store'])->name('store');
+            Route::get('/', [BookingController::class, 'index'])->name('index');
+            Route::get('/data', [BookingController::class, 'data'])->name('data');
+            Route::post('/', [BookingController::class, 'store'])->name('store');
+            Route::put('/{id}', [BookingController::class, 'update'])->name('update');
         });
     });

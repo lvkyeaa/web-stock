@@ -32,7 +32,7 @@
                                 <td class="px-6 py-4 text-sm text-gray-500">{{ $users->firstItem() + $i }}</td>
                                 <td class="px-6 py-4">
                                     <div class="flex items-center gap-3">
-                                        <div class="w-8 h-8 rounded-xl {{ $user->role === 'admin' ? 'bg-bps-blue' : 'bg-bps-green' }} flex items-center justify-center">
+                                        <div class="w-8 h-8 rounded-xl {{ $user->getRoleNames()->first() === 'admin' ? 'bg-bps-blue' : 'bg-bps-green' }} flex items-center justify-center">
                                             <span class="text-white text-xs font-bold uppercase">{{ substr($user->username, 0, 1) }}</span>
                                         </div>
                                         <div>
@@ -42,15 +42,15 @@
                                     </div>
                                 </td>
                                 <td class="px-6 py-4">
-                                    <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-bold {{ $user->role === 'admin' ? 'bg-bps-blue/10 text-bps-blue' : 'bg-bps-green/10 text-bps-green' }}">
-                                        {{ ucfirst($user->role) }}
+                                    <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-bold {{ $user->getRoleNames()->first() === 'admin' ? 'bg-bps-blue/10 text-bps-blue' : 'bg-bps-green/10 text-bps-green' }}">
+                                        {{ ucfirst($user->getRoleNames()->first()) }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 text-xs text-gray-500">{{ $user->created_at->format('d/m/Y') }}</td>
                                 <td class="px-6 py-4">
                                     <div class="flex items-center gap-2">
                                         <button type="button" 
-                                            onclick="openEditModal('{{ $user->id }}', '{{ $user->username }}', '{{ $user->name ?? '' }}', '{{ $user->role }}')"
+                                            onclick="openEditModal('{{ $user->id }}', '{{ $user->username }}', '{{ $user->name ?? '' }}', '{{ $user->getRoleNames()->first() }}')"
                                             class="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition cursor-pointer" 
                                             title="Edit user">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -58,7 +58,7 @@
                                             </svg>
                                         </button>
 
-                                        @if ($user->id !== session('auth_user.id'))
+                                        @if ($user->id !== auth()->id())
                                             <form action="{{ route('admin.manajemen-user.destroy', $user) }}" method="POST" onsubmit="return confirm('Hapus user ini?')">
                                                 @csrf @method('DELETE')
                                                 <button type="submit" class="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition cursor-pointer" title="Hapus user">

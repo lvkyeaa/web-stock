@@ -6,7 +6,7 @@
         {{-- CARD WELCOME --}}
         <div class="bg-gradient-to-r from-white via-bps-cream-bg to-white rounded-2xl p-6 text-slate-700 shadow-sm border border-slate-200/70">
             <p class="text-slate-500 text-sm font-medium">Selamat datang,</p>
-            <h2 class="text-xl font-semibold tracking-tight mt-1">{{ session('auth_user.username') }} 👋</h2>
+            <h2 class="text-xl font-semibold tracking-tight mt-1">{{ auth()->user()->username }} 👋</h2>
             <p class="text-slate-500 text-sm mt-1">{{ now()->isoFormat('dddd, D MMMM Y') }}</p>
         </div>
 

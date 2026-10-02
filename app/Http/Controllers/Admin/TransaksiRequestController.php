@@ -78,7 +78,7 @@ class TransaksiRequestController extends Controller
             // 3. Catat ke tabel Riwayat
             Riwayat::create([
                 'transaksi_request_id' => $transaksi->id,
-                'actor_id'             => auth()->id() ?? session('auth_user.id'),
+                'actor_id'             => auth()->id(),
                 'status_sebelumnya'    => $statusSebelumnya,
                 'status_sesudah'       => $request->status,
                 'catatan'              => $request->alasan,

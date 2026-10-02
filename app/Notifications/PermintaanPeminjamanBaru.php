@@ -30,7 +30,7 @@ class PermintaanPeminjamanBaru extends Notification
     {
         return [
             'peminjaman_id' => $this->peminjaman->id,
-            'pesan' => 'Permintaan baru: Peminjaman ' . ucfirst($this->peminjaman->jenis_fasilitas) . ' - ' . $this->peminjaman->nama_item,
+            'pesan' => 'Permintaan baru: Peminjaman ' . $this->peminjaman->facilityRequest->facilityType->label() . ' - ' . $this->peminjaman->facilityRequest->name,
             'url' => route('admin.peminjaman.index'), // Arahkan admin ke halaman kelola stok/peminjaman
         ];
     }

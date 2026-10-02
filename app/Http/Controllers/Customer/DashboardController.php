@@ -10,7 +10,7 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $userId = session('auth_user.id');
+        $userId = auth()->id();
         
         // 1. Statistik Request Barang (Bawaan Lama)
         $stats = [

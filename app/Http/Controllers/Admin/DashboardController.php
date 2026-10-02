@@ -15,7 +15,7 @@ class DashboardController extends Controller
         // 1. Statistik Inventaris Barang & User (Bawaan Lama Admin)
         $stats = [
             'total_barang'     => Barang::count(),
-            'total_users'      => User::where('role', 'customer')->count(),
+            'total_users'      => User::role('customer')->count(),
             'pending'          => TransaksiRequest::where('status', 'pending')->count(),
             'disetujui'        => TransaksiRequest::where('status', 'disetujui')->count(),
         ];
