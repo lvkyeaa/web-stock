@@ -962,7 +962,7 @@
             async deleteBooking(booking) {
                 const ok = await this.ask({
                     title: 'Hapus peminjaman?',
-                    message: `Peminjaman ${booking.facility} oleh ${booking.user} (${booking.start_label} – ${booking.end_label}) akan dihapus permanen.`,
+                    message: `Peminjaman ${booking.facility} oleh ${booking.user} (${booking.start_label} – ${booking.end_label}) akan dihapus.`,
                     confirmLabel: 'Ya, Hapus',
                     tone: 'danger',
                 });
