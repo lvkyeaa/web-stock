@@ -86,6 +86,8 @@ class BookingController extends Controller
                 'style'       => $item->statusStyle(), // warna sama untuk item kalender & badge daftar
                 'status_url'  => $isAdmin ? route('admin.peminjaman.update-status', $item->id) : null,
                 'can_edit'    => $this->bisaDiedit($item), // peminjaman milik sendiri yang menunggu / ditolak
+                'can_delete'  => $isAdmin || $this->bisaDiedit($item), // admin: semua; customer: sama dengan aturan edit
+                'delete_url'  => route(($isAdmin ? 'admin' : 'customer') . '.peminjaman.destroy', $item->id),
                 // Nilai awal form edit (format input datetime-local)
                 'edit'        => [
                     'url'         => route(($isAdmin ? 'admin' : 'customer') . '.peminjaman.update', $item->id),
@@ -235,6 +237,19 @@ class BookingController extends Controller
         return $this->berhasil($request, 'Perubahan peminjaman berhasil dikirim dan menunggu persetujuan.');
     }
 
+    // Hapus peminjaman. Admin: semua peminjaman. Customer: milik sendiri yang menunggu / ditolak.
+    public function destroy(Request $request, $id)
+    {
+        $peminjaman = Peminjaman::findOrFail($id);
+
+        $isAdmin = User::find(Auth::id())->hasRole('admin');
+        abort_unless($isAdmin || $this->bisaDiedit($peminjaman), 403, 'Peminjaman ini tidak dapat dihapus.');
+
+        $peminjaman->delete();
+
+        return $this->berhasil($request, 'Peminjaman berhasil dihapus.');
+    }
+
     // Hanya pemilik, dan hanya saat status menunggu / ditolak
     private function bisaDiedit(Peminjaman $peminjaman): bool
     {
@@ -247,7 +262,18 @@ class BookingController extends Controller
         $request->validate([
             'facility_request_id' => 'required|exists:facilities,id',
             'waktu_mulai' => 'required|date|after_or_equal:today',
-            'waktu_selesai' => 'required|date|after:waktu_mulai',
+            'waktu_selesai' => [
+                'required', 'date', 'after:waktu_mulai',
+                // Peminjaman tidak boleh melewati hari (selesai di tanggal yang sama dengan mulai)
+                function ($attribute, $value, $fail) use ($request) {
+                    if (strtotime((string) $request->waktu_mulai) === false || strtotime((string) $value) === false) {
+                        return; // format tanggal tidak valid sudah ditangani aturan 'date'
+                    }
+                    if (Carbon::parse($value)->toDateString() !== Carbon::parse($request->waktu_mulai)->toDateString()) {
+                        $fail('Peminjaman harus selesai pada hari yang sama dengan waktu mulai.');
+                    }
+                },
+            ],
             'keperluan' => 'required|string',
         ], [
             'keperluan.required' => 'Keperluan wajib diisi.',

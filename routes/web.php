@@ -59,6 +59,7 @@ Route::prefix('admin')
             Route::get('/data', [BookingController::class, 'data'])->name('data');
             Route::post('/', [BookingController::class, 'store'])->name('store');
             Route::put('/{id}', [BookingController::class, 'update'])->name('update');
+            Route::delete('/{id}', [BookingController::class, 'destroy'])->name('destroy');
             Route::patch('/{id}/status', [BookingController::class, 'updateStatus'])->name('update-status');
         });
     });
@@ -99,5 +100,6 @@ Route::prefix('customer')
             Route::get('/data', [BookingController::class, 'data'])->name('data');
             Route::post('/', [BookingController::class, 'store'])->name('store');
             Route::put('/{id}', [BookingController::class, 'update'])->name('update');
+            Route::delete('/{id}', [BookingController::class, 'destroy'])->name('destroy');
         });
     });

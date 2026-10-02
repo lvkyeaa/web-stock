@@ -136,6 +136,15 @@
         <div x-show="tab === 'list'" x-cloak>
             {{-- Mobile: kartu --}}
             <div class="md:hidden space-y-3">
+                <div class="flex items-center justify-end gap-2">
+                    <label class="text-[11px] font-bold text-slate-500 uppercase">Urutkan</label>
+                    <select @change="setSort($event.target.value)"
+                        class="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-bps-blue cursor-pointer">
+                        <template x-for="opt in sortOptions" :key="opt.value">
+                            <option :value="opt.value" x-text="opt.label" :selected="opt.value === sort.key + ':' + sort.dir"></option>
+                        </template>
+                    </select>
+                </div>
                 <template x-for="b in listBookings" :key="b.id">
                     <div class="rounded-xl border border-gray-200 p-3 space-y-2" :style="'border-left: 4px solid ' + b.type.color">
                         <div class="flex items-start justify-between gap-2">
@@ -157,11 +166,16 @@
                             <div class="text-red-600" x-text="'Selesai: ' + b.end_label"></div>
                         </div>
                         <p class="text-xs text-gray-600 break-words" x-text="b.keperluan || '-'"></p>
-                        <div class="flex gap-2 pt-1" x-show="{{ $isAdmin ? 'true' : 'b.can_edit' }}">
+                        <div class="flex gap-2 pt-1" x-show="{{ $isAdmin ? 'true' : 'b.can_edit || b.can_delete' }}">
                             <button type="button" x-show="b.can_edit" @click="editBooking(b)"
                                 class="flex-1 py-2 flex items-center justify-center gap-1.5 text-bps-blue-dark bg-white border border-slate-300 hover:bg-slate-50 text-xs font-semibold rounded-xl shadow-sm cursor-pointer">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.232-6.232a2.5 2.5 0 113.536 3.536L12.536 16.536 8 18l1.464-4.536z" /></svg>
                                 Edit
+                            </button>
+                            <button type="button" x-show="b.can_delete" @click="deleteBooking(b)" :disabled="acting" title="Hapus"
+                                class="px-3 py-2 flex items-center justify-center gap-1.5 text-rose-600 bg-white border border-rose-200 hover:bg-rose-50 text-xs font-semibold rounded-xl shadow-sm cursor-pointer disabled:opacity-50">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M4 7h16M10 3h4a1 1 0 011 1v3H9V4a1 1 0 011-1z" /></svg>
+                                Hapus
                             </button>
                             @if($isAdmin)
                                 <button type="button" @click="openDetail(b)"
@@ -181,12 +195,32 @@
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="border-b border-gray-200 text-xs font-bold text-gray-500 uppercase bg-gray-50">
-                            <th class="p-3">Nama Pemohon</th>
-                            <th class="p-3">Fasilitas / Item</th>
-                            <th class="p-3">Waktu Pinjam</th>
+                            <th class="p-3">
+                                <button type="button" @click="sortBy('user')" class="inline-flex items-center gap-1 uppercase font-bold cursor-pointer hover:text-gray-800"
+                                    :class="sort.key === 'user' && 'text-bps-blue-dark'">
+                                    Nama Pemohon <span class="text-[10px]" x-text="sortIcon('user')"></span>
+                                </button>
+                            </th>
+                            <th class="p-3">
+                                <button type="button" @click="sortBy('facility')" class="inline-flex items-center gap-1 uppercase font-bold cursor-pointer hover:text-gray-800"
+                                    :class="sort.key === 'facility' && 'text-bps-blue-dark'">
+                                    Fasilitas / Item <span class="text-[10px]" x-text="sortIcon('facility')"></span>
+                                </button>
+                            </th>
+                            <th class="p-3">
+                                <button type="button" @click="sortBy('start')" class="inline-flex items-center gap-1 uppercase font-bold cursor-pointer hover:text-gray-800"
+                                    :class="sort.key === 'start' && 'text-bps-blue-dark'">
+                                    Waktu Pinjam <span class="text-[10px]" x-text="sortIcon('start')"></span>
+                                </button>
+                            </th>
                             <th class="p-3">Keperluan</th>
-                            <th class="p-3">Status</th>
-                            <th class="p-3 text-center">Aksi / Tindakan</th>
+                            <th class="p-3">
+                                <button type="button" @click="sortBy('status')" class="inline-flex items-center gap-1 uppercase font-bold cursor-pointer hover:text-gray-800"
+                                    :class="sort.key === 'status' && 'text-bps-blue-dark'">
+                                    Status <span class="text-[10px]" x-text="sortIcon('status')"></span>
+                                </button>
+                            </th>
+                            <th class="p-3 text-center">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 text-sm">
@@ -212,22 +246,25 @@
                                         <span x-html="statusIcon(b.status)"></span><span x-text="statusLabel[b.status]"></span>
                                     </span>
                                 </td>
-                                <td class="p-3 text-center">
-                                    <div class="flex items-center justify-center gap-2">
-                                        <button type="button" x-show="b.can_edit" @click="editBooking(b)"
-                                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-bps-blue-dark bg-white border border-slate-300 hover:bg-slate-50 text-xs font-semibold rounded-xl shadow-sm transition cursor-pointer">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.232-6.232a2.5 2.5 0 113.536 3.536L12.536 16.536 8 18l1.464-4.536z" /></svg>
-                                            Edit
-                                        </button>
+                                <td class="p-3">
+                                    {{-- Tombol ikon ringkas; label tampil sebagai tooltip --}}
+                                    <div class="flex items-center justify-center gap-1.5">
                                     @if($isAdmin)
-                                        <button type="button" @click="openDetail(b)"
-                                            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white text-xs font-semibold rounded-xl shadow-sm transition cursor-pointer">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                            Persetujuan
+                                        <button type="button" @click="openDetail(b)" aria-label="Persetujuan" x-init="tip($el, 'Persetujuan')"
+                                            class="inline-flex items-center justify-center w-8 h-8 rounded-lg shadow-sm transition cursor-pointer bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                         </button>
                                     @endif
+                                        <button type="button" x-show="b.can_edit" @click="editBooking(b)" aria-label="Edit" x-init="tip($el, 'Edit')"
+                                            class="inline-flex items-center justify-center w-8 h-8 rounded-lg shadow-sm transition cursor-pointer text-bps-blue-dark bg-white border border-slate-300 hover:bg-slate-50">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.232-6.232a2.5 2.5 0 113.536 3.536L12.536 16.536 8 18l1.464-4.536z" /></svg>
+                                        </button>
+                                        <button type="button" x-show="b.can_delete" @click="deleteBooking(b)" :disabled="acting" aria-label="Hapus" x-init="tip($el, 'Hapus')"
+                                            class="inline-flex items-center justify-center w-8 h-8 rounded-lg shadow-sm transition cursor-pointer text-rose-600 bg-white border border-rose-200 hover:bg-rose-50 disabled:opacity-50">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M4 7h16M10 3h4a1 1 0 011 1v3H9V4a1 1 0 011-1z" /></svg>
+                                        </button>
                                     @unless($isAdmin)
-                                        <span x-show="!b.can_edit" class="text-xs text-gray-400">-</span>
+                                        <span x-show="!b.can_edit && !b.can_delete" class="text-xs text-gray-400">-</span>
                                     @endunless
                                     </div>
                                 </td>
@@ -300,12 +337,16 @@
 
                 {{-- AKSI DI BAGIAN BAWAH DIALOG --}}
                 <div class="flex flex-wrap items-center justify-end gap-2 px-5 sm:px-6 py-4 bg-slate-50 border-t border-gray-100 rounded-b-2xl">
-                    <template x-if="selected.can_edit">
-                        <button type="button" @click="editBooking(selected)"
-                            class="w-full sm:w-auto sm:mr-auto px-4 py-2 rounded-xl text-sm font-semibold text-bps-blue-dark bg-white border border-slate-300 hover:bg-slate-50 shadow-sm cursor-pointer">
+                    <div x-show="selected.can_edit || selected.can_delete" class="flex gap-2 w-full sm:w-auto sm:mr-auto">
+                        <button type="button" x-show="selected.can_edit" @click="editBooking(selected)"
+                            class="flex-1 sm:flex-none px-4 py-2 rounded-xl text-sm font-semibold text-bps-blue-dark bg-white border border-slate-300 hover:bg-slate-50 shadow-sm cursor-pointer">
                             Edit Peminjaman
                         </button>
-                    </template>
+                        <button type="button" x-show="selected.can_delete" @click="deleteBooking(selected)" :disabled="acting"
+                            class="flex-1 sm:flex-none px-4 py-2 rounded-xl text-sm font-semibold text-rose-600 bg-white border border-rose-200 hover:bg-rose-50 shadow-sm cursor-pointer disabled:opacity-50">
+                            Hapus
+                        </button>
+                    </div>
                     @if($isAdmin)
                         <div class="flex gap-2 w-full sm:w-auto">
                             <button type="button" @click="setStatus(selected, 'ditolak')" :disabled="acting"
@@ -451,6 +492,7 @@
                     <div>
                         <label class="block text-xs font-bold text-gray-700 uppercase mb-1" x-text="jenis === 'car' ? 'Waktu Kembali' : 'Waktu Selesai Rapat'"></label>
                         <input type="datetime-local" name="waktu_selesai" required x-model="selesai" @input="clearError('waktu_selesai')"
+                            :min="mulai || null" :max="mulai ? mulai.slice(0, 10) + 'T23:59' : null"
                             :class="errors.waktu_selesai ? 'border-red-500' : 'border-gray-300'"
                             class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:border-bps-blue focus:ring-4 focus:ring-bps-blue/10">
                         <span x-show="errors.waktu_selesai" x-text="errors.waktu_selesai && errors.waktu_selesai[0]" class="text-xs text-red-500 font-semibold mt-1 block"></span>
@@ -609,9 +651,53 @@
             confirmBox: { open: false, title: '', message: '', confirmLabel: '', tone: 'primary', resolve: null },
             config,
 
+            sort: { key: 'start', dir: 'asc' },
+            sortOptions: [
+                { value: 'start:asc', label: 'Waktu (paling awal)' },
+                { value: 'start:desc', label: 'Waktu (paling akhir)' },
+                { value: 'user:asc', label: 'Pemohon (A–Z)' },
+                { value: 'user:desc', label: 'Pemohon (Z–A)' },
+                { value: 'facility:asc', label: 'Fasilitas (A–Z)' },
+                { value: 'facility:desc', label: 'Fasilitas (Z–A)' },
+                { value: 'status:asc', label: 'Status (menunggu dulu)' },
+                { value: 'status:desc', label: 'Status (ditolak dulu)' },
+            ],
+
+            // Daftar = peminjaman pada periode sebenarnya, diurutkan sesuai pilihan
             get listBookings() {
                 if (!this.listRange) return [];
-                return this.bookings.filter(b => new Date(b.start) < this.listRange.end && new Date(b.end) > this.listRange.start);
+                const statusOrder = { pending: 0, disetujui: 1, ditolak: 2 };
+                const value = {
+                    start: (b) => new Date(b.start).getTime(),
+                    user: (b) => b.user.toLowerCase(),
+                    facility: (b) => b.facility.toLowerCase(),
+                    status: (b) => statusOrder[b.status],
+                }[this.sort.key];
+                const dir = this.sort.dir === 'asc' ? 1 : -1;
+
+                return this.bookings
+                    .filter(b => new Date(b.start) < this.listRange.end && new Date(b.end) > this.listRange.start)
+                    .sort((a, b) => {
+                        const va = value(a), vb = value(b);
+                        if (va < vb) return -dir;
+                        if (va > vb) return dir;
+                        return new Date(a.start) - new Date(b.start); // urutan kedua: waktu mulai
+                    });
+            },
+
+            // Klik judul kolom: kolom sama = balik arah, kolom lain = mulai dari naik
+            sortBy(key) {
+                this.sort = { key, dir: this.sort.key === key && this.sort.dir === 'asc' ? 'desc' : 'asc' };
+            },
+
+            setSort(value) {
+                const [key, dir] = value.split(':');
+                this.sort = { key, dir };
+            },
+
+            sortIcon(key) {
+                if (this.sort.key !== key) return '↕';
+                return this.sort.dir === 'asc' ? '▲' : '▼';
             },
 
             init() {
@@ -733,6 +819,11 @@
                 if (tab === 'calendar') this.$nextTick(() => calendar.updateSize());
             },
 
+            // Tooltip untuk tombol ikon di kolom aksi
+            tip(el, text) {
+                tippy(el, { content: text, placement: 'top', theme: 'bps-light tip', delay: [150, 0], touch: false });
+            },
+
             // Dialog detail / persetujuan; fasilitas default = yang sudah diberikan, atau yang diminta
             openDetail(booking) {
                 this.selected = booking;
@@ -812,6 +903,39 @@
                 this.load();
             },
 
+            // Hapus peminjaman lewat API setelah konfirmasi, lalu muat ulang data periode ini
+            async deleteBooking(booking) {
+                const ok = await this.ask({
+                    title: 'Hapus peminjaman?',
+                    message: `Peminjaman ${booking.facility} oleh ${booking.user} (${booking.start_label} – ${booking.end_label}) akan dihapus permanen.`,
+                    confirmLabel: 'Ya, Hapus',
+                    tone: 'danger',
+                });
+                if (!ok) return;
+
+                this.acting = true;
+                let gagal = '';
+                try {
+                    const response = await fetch(booking.delete_url, {
+                        method: 'DELETE',
+                        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': config.csrf },
+                    });
+                    const json = await response.json().catch(() => ({}));
+                    if (!response.ok) throw new Error(json.message || 'Gagal menghapus peminjaman. Silakan coba lagi.');
+                    this.notice = json.message;
+                    setTimeout(() => this.notice = '', 4000);
+                } catch (e) {
+                    this.notice = '';
+                    gagal = e.message;
+                } finally {
+                    this.acting = false;
+                    this.selected = null;
+                }
+
+                await this.load();
+                if (gagal) this.error = gagal;
+            },
+
             // Buka form edit berisi data peminjaman milik sendiri (dari dialog detail maupun daftar)
             editBooking(booking) {
                 this.selected = null;
@@ -859,6 +983,7 @@
         box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 4px 6px -2px rgba(15, 23, 42, 0.05);
         border: 1px solid #e2e8f0;
     }
+    .tippy-box[data-theme~='tip'] .tippy-content { padding: 4px 8px; font-size: 11px; font-weight: 600; }
     .tippy-box[data-theme~='bps-light'] .tippy-arrow {
         color: #ffffff;
     }
