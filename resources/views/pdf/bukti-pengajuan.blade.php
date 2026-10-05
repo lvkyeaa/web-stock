@@ -156,13 +156,13 @@
             </tr>
         </thead>
         <tbody>
-            @forelse($pengajuan->details as $index => $detail)
+            @forelse($pengajuan->items as $index => $detail)
                 <tr>
                     <td style="text-align: center;">{{ $index + 1 }}</td>
-                    <td style="text-align: center;">{{ $detail->barang->kode_barang ?? '-' }}</td>
-                    <td>{{ $detail->barang->nama_barang ?? '-' }}</td>
-                    <td style="text-align: center;">{{ $detail->barang->satuan ?? 'pcs' }}</td>
-                    <td style="text-align: center;">{{ $detail->jumlah_diminta ?? $detail->jumlah ?? 0 }}</td>
+                    <td style="text-align: center;">{{ $detail->stock_id ?? '-' }}</td>
+                    <td>{{ $detail->nama_barang }}</td>
+                    <td style="text-align: center;">{{ $detail->satuan }}</td>
+                    <td style="text-align: center;">{{ $detail->jumlah }}</td>
                     <td>{{ $detail->keterangan ?? '' }}</td>
                 </tr>
             @empty
@@ -172,7 +172,7 @@
             @endforelse
 
             {{-- Baris Kosong Pelengkap Agar Mengisi Tabel Seperti Form Fisik --}}
-            @for ($i = count($pengajuan->details); $i < 8; $i++)
+            @for ($i = count($pengajuan->items); $i < 8; $i++)
                 <tr>
                     <td>&nbsp;</td>
                     <td></td>
@@ -188,7 +188,7 @@
     {{-- TANGGAL & TANDA TANGAN --}}
     <div class="ttd-container">
         <div style="text-align: right; font-size: 10pt; margin-bottom: 10px; padding-right: 30px;">
-            Surabaya, {{ $pengajuan->created_at->translatedFormat('d F') }} {{ $pengajuan->created_at->format('Y') }}
+            Surabaya, {{ $pengajuan->created_at->tanggal() }}
         </div>
 
         <table class="ttd-table">

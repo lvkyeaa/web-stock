@@ -1,13 +1,13 @@
 @extends('layouts.admin')
-@section('title', 'Manajemen Transaksi')
+@section('title', 'Persetujuan Pengajuan Persediaan')
 
 @section('content')
     <div class="space-y-6">
         <div class="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Transaksi</p>
-                    <h2 class="mt-1 text-xl font-semibold tracking-tight text-slate-900">Daftar Transaksi Request Kelompok</h2>
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Kelola</p>
+                    <h2 class="mt-1 text-xl font-semibold tracking-tight text-slate-900">Persetujuan Pengajuan Persediaan</h2>
                 </div>
                 <div class="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
                     <span class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Total</span>
@@ -23,8 +23,8 @@
                     <thead>
                         <tr class="border-b border-slate-100 bg-slate-50/60">
                             <th class="w-14 px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.22em] text-bps-blue-dark">No</th>
-                            <th class="w-44 px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.22em] text-bps-blue-dark">Customer</th>
-                            <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.22em] text-bps-blue-dark">Daftar Barang Diminta</th>
+                            <th class="w-44 px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.22em] text-bps-blue-dark">Pemohon</th>
+                            <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.22em] text-bps-blue-dark">Daftar Persediaan Diminta</th>
                             <th class="w-28 px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.22em] text-bps-blue-dark">Status</th>
                             <th class="w-36 px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.22em] text-bps-blue-dark">Tanggal</th>
                             <th class="w-44 px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.22em] text-bps-blue-dark">Aksi</th>
@@ -36,23 +36,24 @@
                                 <td class="px-4 py-4 text-sm text-slate-500">{{ $transaksi->firstItem() + $i }}</td>
                                 <td class="px-4 py-4 text-sm font-semibold text-slate-900">
                                     {{ $item->user->username ?? $item->user->name ?? '-' }}
+                                    <span class="block text-[10px] font-normal text-slate-400">{{ $item->code }}</span>
                                 </td>
 
                                 {{-- Daftar Rincian Barang dalam 1 Paket --}}
                                 <td class="px-4 py-4 text-sm text-slate-700">
                                     <div class="space-y-1.5">
-                                        @foreach($item->details as $detail)
+                                        @foreach($item->items as $detail)
                                             <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
                                                 <div class="min-w-0 flex-1 flex items-center gap-2">
                                                     <span class="font-bold text-bps-blue-dark text-xs bg-slate-200/60 px-2 py-0.5 rounded-md">
-                                                        x{{ $detail->jumlah_diminta }}
+                                                        x{{ $detail->jumlah }}
                                                     </span>
-                                                    <span class="truncate text-xs font-semibold text-slate-800" title="{{ $detail->barang->nama_barang ?? 'Barang Dihapus' }}">
-                                                        {{ $detail->barang->nama_barang ?? 'Barang Dihapus' }}
+                                                    <span class="truncate text-xs font-semibold text-slate-800" title="{{ $detail->nama_barang }}">
+                                                        {{ $detail->nama_barang }}
                                                     </span>
                                                 </div>
                                                 <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                                                    {{ $detail->barang->satuan ?? 'Pcs' }}
+                                                    {{ $detail->satuan }}
                                                 </span>
                                             </div>
                                         @endforeach
@@ -74,7 +75,7 @@
                                 </td>
 
                                 <td class="px-4 py-4 text-xs whitespace-nowrap text-slate-500">
-                                    {{ $item->created_at->format('d/m/Y H:i') }}
+                                    {{ $item->created_at->tanggalJam() }}
                                 </td>
 
                                 {{-- Tombol Aksi Paket (ACC / TOLAK / CETAK PDF) --}}
@@ -82,7 +83,7 @@
                                     <div class="flex flex-col gap-2">
                                         @if ($item->status === 'pending')
                                             {{-- Tombol Setujui --}}
-                                            <form action="{{ route('admin.transaksi.update-status', $item->id) }}" method="POST" onsubmit="return confirm('Setujui seluruh permintaan barang ini?')">
+                                            <form action="{{ route('pengajuan.update-status', $item->id) }}" method="POST" onsubmit="return confirm('Setujui seluruh permintaan persediaan ini?')">
                                                 @csrf 
                                                 @method('PATCH')
                                                 <input type="hidden" name="status" value="disetujui">
@@ -97,7 +98,7 @@
                                             </button>
                                         @else
                                             <div class="text-left mb-1">
-                                                <span class="block text-[11px] font-semibold text-slate-500">Selesai Evaluasi</span>
+                                                <span class="block text-[11px] font-semibold text-slate-500">Selesai</span>
                                                 @if($item->alasan)
                                                     <span class="block text-[10px] italic text-rose-500 max-w-[130px] truncate" title="{{ $item->alasan }}">
                                                         Alasan: {{ $item->alasan }}
@@ -108,7 +109,7 @@
 
                                         {{-- 🖨️ TOMBOL CETAK PDF (HANYA MUNCUL JIKA STATUS DISETUJUI) --}}
                                         @if ($item->status === 'disetujui')
-                                            <a href="{{ route('admin.pengajuan.cetak-pdf', $item->id) }}" 
+                                            <a href="{{ route('pengajuan.cetak-pdf', $item->id) }}" 
                                                target="_blank" 
                                                class="w-full flex items-center justify-center gap-1 rounded-xl border border-red-200 bg-red-50/70 hover:bg-red-100 px-2.5 py-1.5 text-xs font-bold text-red-700 transition shadow-xs">
                                                 <svg class="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -122,7 +123,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-6 py-12 text-center text-gray-400 text-sm">Belum ada data transaksi pengajuan kelompok.</td>
+                                <td colspan="6" class="px-6 py-12 text-center text-gray-400 text-sm">Belum ada data pengajuan.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -137,8 +138,8 @@
     {{-- Modal Tolak Paket Transaksi --}}
     <div id="modalTolak" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <h3 class="text-lg font-bold text-slate-900 mb-1">Tolak Pengajuan Barang</h3>
-            <p class="text-xs text-slate-400 mb-4">Silakan masukkan alasan penolakan permintaan barang ini.</p>
+            <h3 class="text-lg font-bold text-slate-900 mb-1">Tolak Pengajuan Persediaan</h3>
+            <p class="text-xs text-slate-400 mb-4">Silakan masukkan alasan penolakan permintaan persediaan ini.</p>
             
             <form id="formTolak" method="POST" class="space-y-4">
                 @csrf 
@@ -161,7 +162,7 @@
     <script>
         function openTolakModal(id) {
             // Menghasilkan URL dinamis sesuai nama route Laravel
-            let routeUrl = "{{ route('admin.transaksi.update-status', ':id') }}";
+            let routeUrl = "{{ route('pengajuan.update-status', ':id') }}";
             document.getElementById('formTolak').action = routeUrl.replace(':id', id);
             document.getElementById('modalTolak').classList.remove('hidden');
         }

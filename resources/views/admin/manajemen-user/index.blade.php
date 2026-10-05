@@ -1,16 +1,16 @@
 @extends('layouts.admin')
-@section('title', 'Manajemen User')
+@section('title', 'Pengguna')
 
 @section('content')
     <div class="space-y-6">
         <div class="flex items-center justify-between">
-            <h2 class="text-xl font-semibold tracking-tight text-gray-900">Manajemen User</h2>
+            <h2 class="text-xl font-semibold tracking-tight text-gray-900">Pengguna</h2>
             <button onclick="document.getElementById('modalTambahUser').classList.remove('hidden')"
                 class="flex items-center gap-2 bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-[0_8px_24px_-12px_rgba(0,61,130,0.8)] cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                 </svg>
-                Tambah User
+                Tambah Pengguna
             </button>
         </div>
 
@@ -43,10 +43,10 @@
                                 </td>
                                 <td class="px-6 py-4">
                                     <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-bold {{ $user->getRoleNames()->first() === 'admin' ? 'bg-bps-blue/10 text-bps-blue' : 'bg-bps-green/10 text-bps-green' }}">
-                                        {{ ucfirst($user->getRoleNames()->first()) }}
+                                        {{ $user->labelPeran() }}
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 text-xs text-gray-500">{{ $user->created_at->format('d/m/Y') }}</td>
+                                <td class="px-6 py-4 text-xs text-gray-500">{{ $user->created_at->tanggal() }}</td>
                                 <td class="px-6 py-4">
                                     <div class="flex items-center gap-2">
                                         <button type="button" 
@@ -91,7 +91,7 @@
     <div id="modalTambahUser" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
             <div class="flex items-center justify-between mb-5">
-                <h3 class="text-lg font-bold text-gray-900">Tambah User</h3>
+                <h3 class="text-lg font-bold text-gray-900">Tambah Pengguna</h3>
                 <button onclick="document.getElementById('modalTambahUser').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 cursor-pointer">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -115,7 +115,7 @@
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-1.5">Role</label>
                     <select name="role" required class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue bg-white">
-                        <option value="customer">Customer</option>
+                        <option value="customer">Pengguna</option>
                         <option value="admin">Admin</option>
                     </select>
                 </div>
@@ -131,7 +131,7 @@
     <div id="modalEditUser" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
             <div class="flex items-center justify-between mb-5">
-                <h3 class="text-lg font-bold text-gray-900">Edit Data User</h3>
+                <h3 class="text-lg font-bold text-gray-900">Edit Data Pengguna</h3>
                 <button onclick="document.getElementById('modalEditUser').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 cursor-pointer">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -152,7 +152,7 @@
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-1.5">Role</label>
                     <select name="role" id="edit_role" required class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue bg-white">
-                        <option value="customer">Customer</option>
+                        <option value="customer">Pengguna</option>
                         <option value="admin">Admin</option>
                     </select>
                 </div>

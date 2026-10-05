@@ -100,8 +100,8 @@ class BookingController extends Controller
                 'user'        => $item->user->username ?? 'Tidak Diketahui',
                 'start'       => $item->waktu_mulai->toIso8601String(),
                 'end'         => $item->waktu_selesai->toIso8601String(),
-                'start_label' => $item->waktu_mulai->format('d M Y - H:i'),
-                'end_label'   => $item->waktu_selesai->format('d M Y - H:i'),
+                'start_label' => $item->waktu_mulai->tanggalJam(),
+                'end_label'   => $item->waktu_selesai->tanggalJam(),
                 'keperluan'   => $item->keperluan,
                 'status'      => $item->status,
                 'style'       => $item->statusStyle(), // warna sama untuk item kalender & badge daftar
@@ -189,8 +189,10 @@ class BookingController extends Controller
                 return $this->gagalUbahStatus($request, 'Fasilitas yang diberikan harus sejenis dengan fasilitas yang diminta.');
             }
 
-            if ($this->bentrokDengan($facilityId, $peminjaman->waktu_mulai, $peminjaman->waktu_selesai, $peminjaman->id)->isNotEmpty()) {
-                return $this->gagalUbahStatus($request, 'Fasilitas tersebut sudah dipakai peminjaman lain yang disetujui pada waktu yang sama.');
+            // Bentrok: pesan & daftar peminjaman yang bentrok ditampilkan di dialog persetujuan (di bawah pilihan fasilitas)
+            $konflik = $this->bentrokDengan($facilityId, $peminjaman->waktu_mulai, $peminjaman->waktu_selesai, $peminjaman->id);
+            if ($konflik->isNotEmpty()) {
+                return $this->gagalBentrok($request, $konflik, 'facility_id');
             }
         }
 
@@ -321,27 +323,27 @@ class BookingController extends Controller
             ->get();
     }
 
-    // Bentrok ditampilkan di form (di bawah pilihan fasilitas), bukan sebagai pesan di halaman
-    private function gagalBentrok(Request $request, Collection $konflik)
+    // Bentrok ditampilkan di form / dialog persetujuan (di bawah pilihan fasilitas $field), bukan sebagai pesan di halaman
+    private function gagalBentrok(Request $request, Collection $konflik, string $field = 'facility_request_id')
     {
         $pesan = 'Fasilitas ini sudah dipakai peminjaman lain yang disetujui pada waktu tersebut. Pilih waktu atau fasilitas lain.';
 
         if ($request->expectsJson()) {
             return response()->json([
                 'message'   => $pesan,
-                'errors'    => ['facility_request_id' => [$pesan]],
+                'errors'    => [$field => [$pesan]],
                 'conflicts' => $konflik->map(fn($item) => [
                     'id'          => $item->id,
                     'facility'    => $item->facility->name,
                     'user'        => $item->user->username ?? 'Tidak Diketahui',
-                    'start_label' => $item->waktu_mulai->format('d M Y - H:i'),
-                    'end_label'   => $item->waktu_selesai->format('d M Y - H:i'),
+                    'start_label' => $item->waktu_mulai->tanggalJam(),
+                    'end_label'   => $item->waktu_selesai->tanggalJam(),
                     'keperluan'   => $item->keperluan,
                 ])->values(),
             ], 422);
         }
 
-        return redirect()->back()->withInput()->withErrors(['facility_request_id' => $pesan]);
+        return redirect()->back()->withInput()->withErrors([$field => $pesan]);
     }
 
     private function berhasil(Request $request, string $pesan)

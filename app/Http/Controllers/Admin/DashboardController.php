@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Barang;
-use App\Models\TransaksiRequest;
+use App\Models\Order;
 use App\Models\User;
 use App\Models\Peminjaman; // 💡 Memanggil model Peminjaman untuk merekap data fasilitas
 
@@ -16,8 +16,8 @@ class DashboardController extends Controller
         $stats = [
             'total_barang'     => Barang::count(),
             'total_users'      => User::role('customer')->count(),
-            'pending'          => TransaksiRequest::where('status', 'pending')->count(),
-            'disetujui'        => TransaksiRequest::where('status', 'disetujui')->count(),
+            'pending'          => Order::where('status', 'pending')->count(),
+            'disetujui'        => Order::where('status', 'disetujui')->count(),
         ];
 
         // 2. 🆕 Statistik Peminjaman Fasilitas Masuk (Mobil & Ruang)

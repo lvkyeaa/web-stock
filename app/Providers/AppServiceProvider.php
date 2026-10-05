@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Support\Carbon;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +20,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Biarkan kosong atau biarkan sesuai kode asli bawaan Anda sebelumnya
+        // Format tanggal tampilan di seluruh aplikasi (nama bulan mengikuti locale aplikasi, APP_LOCALE=id):
+        // $tanggal->tanggal()    → 1 Januari 2026
+        // $tanggal->tanggalJam() → 1 Januari 2026, 10:00
+        Carbon::macro('tanggal', fn () => $this->translatedFormat('j F Y'));
+        Carbon::macro('tanggalJam', fn () => $this->translatedFormat('j F Y, H:i'));
     }
 }
