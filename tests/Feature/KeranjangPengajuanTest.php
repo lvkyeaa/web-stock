@@ -445,6 +445,7 @@ class KeranjangPengajuanTest extends TestCase
         $this->assertSame(route('pengajuan.cetak-pdf', $order), $this->dataPengajuan($admin, ['lingkup' => 'semua'])->sole()['pdf_url']);
         $this->actingAs($admin)->get(route('pengajuan.cetak-pdf', $order))->assertOk();
 
+        $order->beriNomor();
         $pdf = view('pdf.bukti-pengajuan', ['pengajuan' => $order->load('items', 'user'), 'nomorSurat' => $order->nomorSurat()])->render();
         $this->assertStringContainsString($order->items->first()->stock_id, $pdf);
     }
@@ -694,6 +695,35 @@ class KeranjangPengajuanTest extends TestCase
         $this->assertSame(['dibatalkan', 'Dibatalkan', null], [$diAdmin['status'], $diAdmin['status_label'], $diAdmin['status_url']]);
         $this->actingAs($this->user('admin'))->get(route('pengajuan.index'))->assertSee("'Dibatalkan pemohon'", false);
     }
+    public function test_nomor_surat_diberikan_saat_disetujui_dan_tidak_berubah(): void
+    {
+        $admin = $this->user('admin');
+        $barang = $this->barang(stock: 100);
+        $pemohon = $this->user();
+        $pemohon->forceFill(['username' => 'umum'])->save();
+
+        \Illuminate\Support\Carbon::setTestNow('2026-08-01 09:00');
+        $lebihDulu = $this->orderUntuk($pemohon, $barang, 1);
+        \Illuminate\Support\Carbon::setTestNow('2026-08-02 09:00');
+        $belakangan = $this->orderUntuk($pemohon, $barang, 1);
+        \Illuminate\Support\Carbon::setTestNow();
+
+        $this->assertNull($lebihDulu->fresh()->nomor_urut, 'belum disetujui: belum bernomor');
+
+        // Yang dibuat belakangan disetujui (dan dicetak) lebih dulu → nomor 1
+        $this->actingAs($admin)->patchJson(route('pengajuan.update-status', $belakangan), ['status' => 'disetujui'])->assertOk();
+        $this->assertSame('1/umum/VIII/2026', $belakangan->fresh()->nomorSurat());
+
+        // Pengajuan lain di bulan yang sama disetujui kemudian → nomor 2; nomor yang sudah dicetak tidak berubah
+        $this->actingAs($admin)->patchJson(route('pengajuan.update-status', $lebihDulu), ['status' => 'disetujui'])->assertOk();
+        $this->assertSame('2/umum/VIII/2026', $lebihDulu->fresh()->nomorSurat());
+        $this->assertSame('1/umum/VIII/2026', $belakangan->fresh()->nomorSurat());
+
+        // Pengajuan admin (langsung disetujui) juga langsung bernomor
+        $milikAdmin = $this->orderUntuk($admin, $barang, 1);
+        $this->assertNotNull($milikAdmin->fresh()->nomor_urut);
+    }
+
     public function test_customer_tidak_bisa_menyetujui(): void
     {
         $order = $this->orderUntuk($this->user(), $this->barang(), 1);

@@ -6,6 +6,7 @@ use App\Models\Barang;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -189,6 +190,79 @@ class BarangTest extends TestCase
             ->assertOk()->assertExactJson(['message' => 'Persediaan baru berhasil ditambahkan.']);
 
         $this->assertDatabaseHas('barang', ['stock_id' => 'ATK-001', 'nama_barang' => 'Stapler', 'stock' => 5]);
+    }
+
+    public function test_tambah_stok_persediaan_yang_dipilih_dari_daftar(): void
+    {
+        $barang = $this->barang(stock: 3, nama: 'Stapler');
+
+        $this->actingAs($this->user('admin'))
+            ->postJson(route('barang.store'), ['barang_id' => $barang->id, 'stock' => 4])
+            ->assertOk()->assertExactJson(['message' => "Stok persediaan 'Stapler' berhasil ditambahkan."]);
+
+        $this->assertSame(7, $barang->fresh()->stock);
+        $this->assertSame(1, Barang::count());
+
+        // Tanpa memilih persediaan, data persediaan baru wajib diisi
+        $this->actingAs($this->user('admin'))->postJson(route('barang.store'), ['stock' => 1])
+            ->assertJsonValidationErrors(['nama_barang', 'satuan']);
+    }
+
+    public function test_buat_baru_dengan_nama_yang_sudah_ada_tidak_membuat_ganda(): void
+    {
+        $barang = $this->barang(stock: 3, nama: 'AMPLOP COKLAT KECIL');
+
+        $this->actingAs($this->user('admin'))
+            ->postJson(route('barang.store'), ['nama_barang' => '  amplop  coklat kecil ', 'satuan' => 'PAK', 'stock' => 5])
+            ->assertOk()->assertExactJson(['message' => "Stok persediaan 'AMPLOP COKLAT KECIL' berhasil ditambahkan."]);
+
+        $this->assertSame([8, 'BUAH'], [$barang->fresh()->stock, $barang->fresh()->satuan]);
+        $this->assertSame(1, Barang::count());
+    }
+
+    public function test_foto_tambah_persediaan_disimpan(): void
+    {
+        Storage::fake('public');
+        $admin = $this->user('admin');
+
+        $this->actingAs($admin)->postJson(route('barang.store'), [
+            'nama_barang' => 'Map  Plastik', 'satuan' => 'BUAH', 'stock' => 2, 'foto' => UploadedFile::fake()->image('map.jpg'),
+        ])->assertOk();
+
+        $baru = Barang::where('nama_barang', 'Map Plastik')->sole(); // nama baru disimpan dengan spasi tunggal
+        $this->assertNotNull($baru->foto);
+        Storage::disk('public')->assertExists($baru->foto);
+
+        // Nama yang sudah ada & belum punya foto: foto ikut disimpan ke persediaan itu
+        $tanpaFoto = $this->barang(nama: 'Lakban');
+        $this->actingAs($admin)->postJson(route('barang.store'), [
+            'nama_barang' => 'lakban', 'satuan' => 'ROL', 'stock' => 1, 'foto' => UploadedFile::fake()->image('lakban.jpg'),
+        ])->assertOk();
+        Storage::disk('public')->assertExists($tanpaFoto->fresh()->foto);
+    }
+
+    public function test_halaman_kelola_memakai_dialog_hapus_dan_tombol_unduh_template(): void
+    {
+        $html = $this->actingAs($this->user('admin'))->get(route('barang.index'))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('confirm(', $html);
+        $this->assertStringContainsString('id="modalHapus" data-dialog', $html);
+        $this->assertStringContainsString('href="' . route('barang.import.template') . '"', $html);
+        $this->assertStringContainsString('x-data="tambahPersediaan(', $html);
+    }
+
+    public function test_unduh_template_impor(): void
+    {
+        $response = $this->actingAs($this->user('admin'))->get(route('barang.import.template'))->assertOk();
+        $this->assertStringContainsString('template_impor_persediaan.xlsx', $response->headers->get('content-disposition'));
+
+        $path = tempnam(sys_get_temp_dir(), 'tpl') . '.xlsx';
+        file_put_contents($path, $response->streamedContent() ?: file_get_contents($response->baseResponse->getFile()->getPathname()));
+        $baris = \Maatwebsite\Excel\Facades\Excel::toArray(new \stdClass, $path)[0];
+        $this->assertSame(['nama_barang', 'satuan', 'jumlah'], $baris[0]);
+        @unlink($path);
+
+        $this->actingAs($this->user('customer'))->get(route('barang.import.template'))->assertForbidden();
     }
 
     public function test_tambah_barang_yang_sudah_ada_menambah_stok_dan_melengkapi_kode(): void

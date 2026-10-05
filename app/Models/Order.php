@@ -36,16 +36,28 @@ class Order extends Model
     }
 
     // Format: {urutan pengajuan disetujui di bulan itu}/{username}/{bulan romawi}/{tahun}, contoh 1/umum/VIII/2026
+    // Beri nomor urut surat saat pengajuan DISETUJUI. Panggil di dalam transaksi persetujuan.
+    // Nomor = urutan pengajuan disetujui dalam bulan pengajuan dibuat; disimpan, jadi tidak berubah setelah dicetak.
+    public function beriNomor(): void
+    {
+        if ($this->nomor_urut) {
+            return;
+        }
+
+        $periode = $this->created_at->format('Y-m');
+
+        // Kunci nomor-nomor bulan ini: persetujuan bersamaan menunggu di sini, jadi tidak ada nomor ganda
+        // (unique(periode_nomor, nomor_urut) di database menjadi pengaman terakhir)
+        $terakhir = self::where('periode_nomor', $periode)->lockForUpdate()->max('nomor_urut');
+
+        $this->forceFill(['periode_nomor' => $periode, 'nomor_urut' => (int) $terakhir + 1])->save();
+    }
+
+    // Format: {nomor urut}/{username}/{bulan romawi}/{tahun}, contoh 1/umum/VIII/2026
     public function nomorSurat(): string
     {
-        $nomorUrut = self::where('status', 'disetujui')
-            ->whereYear('created_at', $this->created_at->year)
-            ->whereMonth('created_at', $this->created_at->month)
-            ->where('created_at', '<', $this->created_at)
-            ->count() + 1;
-
         $bulanRomawi = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'][$this->created_at->month - 1];
 
-        return sprintf('%d/%s/%s/%d', $nomorUrut, strtolower($this->user->username ?? 'umum'), $bulanRomawi, $this->created_at->year);
+        return sprintf('%d/%s/%s/%d', $this->nomor_urut, strtolower($this->user->username ?? 'umum'), $bulanRomawi, $this->created_at->year);
     }
 }

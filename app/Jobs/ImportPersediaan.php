@@ -39,7 +39,7 @@ class ImportPersediaan implements ShouldQueue
 
         foreach ($rows as $i => $row) {
             $baris = $i + 2; // baris 1 di Excel = judul kolom
-            $nama = $this->rapikanNama((string) ($row['nama_barang'] ?? $row['nama'] ?? ''));
+            $nama = Barang::rapikanNama((string) ($row['nama_barang'] ?? $row['nama'] ?? ''));
             $jumlah = $row['stock'] ?? $row['stok'] ?? $row['jumlah'] ?? null;
             $satuan = trim((string) ($row['satuan'] ?? ''));
 
@@ -77,7 +77,7 @@ class ImportPersediaan implements ShouldQueue
 
             // Indeks nama → barang. Nama di database ikut dirapikan, jadi "AMPLOP COKLAT  KECIL" (dua spasi) di Excel
             // tetap cocok dengan "AMPLOP COKLAT KECIL" dan tidak membuat persediaan ganda
-            $indeks = Barang::get(['id', 'nama_barang', 'stock'])->keyBy(fn (Barang $b) => mb_strtolower($this->rapikanNama($b->nama_barang)));
+            $indeks = Barang::get(['id', 'nama_barang', 'stock'])->keyBy(fn (Barang $b) => mb_strtolower(Barang::rapikanNama($b->nama_barang)));
 
             foreach ($valid as $row) {
                 $kunci = mb_strtolower($row['nama']);
@@ -112,12 +112,6 @@ class ImportPersediaan implements ShouldQueue
     public function failed(Throwable $e): void
     {
         $this->gagal('Impor gagal diproses: ' . $e->getMessage());
-    }
-
-    // Spasi di awal/akhir dibuang dan spasi berurutan (termasuk non-breaking space dari salinan web/Word) dijadikan satu
-    private function rapikanNama(string $nama): string
-    {
-        return trim(preg_replace('/[\s\x{00A0}]+/u', ' ', $nama));
     }
 
     private function gagal(string $keterangan): void

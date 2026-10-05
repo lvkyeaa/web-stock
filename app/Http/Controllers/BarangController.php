@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\TemplateImportPersediaan;
 use App\Jobs\ImportPersediaan;
 use App\Models\Barang;
 use App\Models\ImportStatus;
@@ -9,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
 
 // Controller barang & stok untuk role admin (kelola) maupun customer (katalog). Aksi ubah data khusus admin (dibatasi di route).
 class BarangController extends Controller
@@ -99,29 +101,39 @@ class BarangController extends Controller
     // Tambah barang baru; jika kode (atau nama, bila kode kosong) sudah ada, stoknya ditambahkan
     public function store(Request $request)
     {
+        // barang_id = dipilih dari daftar persediaan yang ada; tanpa barang_id = buat persediaan baru
         $request->validate([
+            'barang_id'   => 'nullable|uuid|exists:barang,id',
             'stock_id'    => 'nullable|string|max:50',
-            'nama_barang' => 'required|string|max:255',
+            'nama_barang' => 'required_without:barang_id|nullable|string|max:255',
+            'satuan'      => 'required_without:barang_id|nullable|string|max:50',
             'stock'       => 'required|integer|min:1',
-            'satuan'      => 'required|string|max:50',
+            'foto'        => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
         $kode = $request->filled('stock_id') ? trim($request->stock_id) : null;
-        $existingBarang = $this->cariBarang($kode, $request->nama_barang);
+        $existingBarang = $request->filled('barang_id')
+            ? Barang::find($request->barang_id)
+            : $this->cariBarang($kode, (string) $request->nama_barang);
 
         if ($existingBarang) {
-            // Barang lama yang belum punya kode ikut diberi kode yang diisi
-            $existingBarang->increment('stock', (int) $request->stock, ['stock_id' => $existingBarang->stock_id ?? $kode]);
+            // Nama baru yang ternyata sudah ada tidak dibuat ganda: stoknya ditambah. Kode & foto ikut diisi
+            // jika persediaan lama belum punya.
+            $tambahan = ['stock_id' => $existingBarang->stock_id ?? $kode];
+            if (! $existingBarang->foto && $request->hasFile('foto')) {
+                $tambahan['foto'] = $request->file('foto')->store('barang', 'public');
+            }
+            $existingBarang->increment('stock', (int) $request->stock, $tambahan);
 
             return response()->json(['message' => "Stok persediaan '{$existingBarang->nama_barang}' berhasil ditambahkan."]);
         }
 
-        // Foto diupload terpisah via edit
         Barang::create([
             'stock_id'    => $kode,
-            'nama_barang' => trim($request->nama_barang),
+            'nama_barang' => Barang::rapikanNama($request->nama_barang),
             'stock'       => (int) $request->stock,
-            'satuan'      => $request->satuan,
+            'satuan'      => trim($request->satuan),
+            'foto'        => $request->hasFile('foto') ? $request->file('foto')->store('barang', 'public') : null,
         ]);
 
         return response()->json(['message' => 'Persediaan baru berhasil ditambahkan.']);
@@ -250,6 +262,12 @@ class BarangController extends Controller
         ], 202);
     }
 
+    // Unduh template Excel impor persediaan (judul kolom + satu baris contoh)
+    public function templateImport()
+    {
+        return Excel::download(new TemplateImportPersediaan, 'template_impor_persediaan.xlsx');
+    }
+
     // Daftar unggahan terbaru beserta statusnya (dialog Riwayat Impor)
     public function riwayatImport()
     {
@@ -269,7 +287,7 @@ class BarangController extends Controller
         ]);
     }
 
-    // Cari berdasarkan kode jika diisi; jika tidak ketemu, berdasarkan nama (tanpa beda huruf besar/kecil) yang belum punya kode lain
+    // Cari berdasarkan kode jika diisi; jika tidak ketemu, berdasarkan nama (tanpa beda huruf besar/kecil & spasi berlebih)
     private function cariBarang(?string $kode, string $nama): ?Barang
     {
         $kode = trim((string) $kode);
@@ -278,8 +296,7 @@ class BarangController extends Controller
             return $barang;
         }
 
-        return Barang::whereRaw('LOWER(nama_barang) = ?', [strtolower(trim($nama))])
-            ->when($kode !== '', fn ($query) => $query->whereNull('stock_id'))
-            ->first();
+        // Nama sama (tanpa beda huruf besar/kecil & spasi berlebih) dianggap persediaan yang sama
+        return Barang::cariNama($nama);
     }
 }

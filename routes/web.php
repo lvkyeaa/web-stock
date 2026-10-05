@@ -45,6 +45,7 @@ Route::prefix('barang')->name('barang.')->middleware(['auth', 'role:admin|custom
         Route::post('/', [BarangController::class, 'store'])->name('store');
         Route::post('/import', [BarangController::class, 'importExcel'])->name('import');
         Route::get('/import', [BarangController::class, 'riwayatImport'])->name('import.riwayat');
+        Route::get('/import/template', [BarangController::class, 'templateImport'])->name('import.template');
         Route::put('/{barang}', [BarangController::class, 'update'])->name('update');
         Route::patch('/{barang}/stock', [BarangController::class, 'updateStock'])->name('update-stock');
         Route::delete('/{barang}', [BarangController::class, 'destroy'])->name('destroy');

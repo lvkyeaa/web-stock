@@ -21,6 +21,21 @@ class Barang extends Model
     // 💡 1. Tambahkan 'foto' ke dalam $fillable
     protected $fillable = ['stock_id', 'nama_barang', 'stock', 'satuan', 'foto', 'import_status_id'];
 
+    // ─── Identitas nama ───
+    // Spasi di awal/akhir dibuang dan spasi berurutan (termasuk non-breaking space dari salinan web/Word) dijadikan satu
+    public static function rapikanNama(string $nama): string
+    {
+        return trim(preg_replace('/[\s\x{00A0}]+/u', ' ', $nama));
+    }
+
+    // Barang dengan nama yang sama, tanpa beda huruf besar/kecil & spasi berlebih (dipakai Tambah Manual & impor Excel)
+    public static function cariNama(string $nama): ?self
+    {
+        $kunci = mb_strtolower(self::rapikanNama($nama));
+
+        return self::all()->first(fn (self $barang) => mb_strtolower(self::rapikanNama($barang->nama_barang)) === $kunci);
+    }
+
     public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);

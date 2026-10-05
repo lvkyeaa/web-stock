@@ -156,6 +156,8 @@ class OrderController extends Controller
                     'status_sesudah'    => 'disetujui',
                     'catatan'           => 'Pengajuan admin, langsung disetujui.',
                 ]);
+
+                $order->beriNomor(); // nomor surat PDF tetap sejak disetujui
             }
 
             $user->cartItems()->delete();
@@ -234,6 +236,10 @@ class OrderController extends Controller
                 'status' => $request->status,
                 'alasan' => $request->alasan,
             ]);
+
+            if ($request->status === 'disetujui') {
+                $order->beriNomor(); // nomor surat PDF tetap sejak disetujui
+            }
 
             return null;
         });
