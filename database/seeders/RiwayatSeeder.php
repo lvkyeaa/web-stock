@@ -11,13 +11,13 @@ class RiwayatSeeder extends Seeder
      */
     public function run(): void
     {
-        $requests = \App\Models\TransaksiRequest::all();
+        $requests = \App\Models\Order::all();
         $admin = \App\Models\User::role('admin')->first();
 
         foreach ($requests as $req) {
             // Log saat pengajuan dibuat oleh user
             \App\Models\Riwayat::create([
-                'transaksi_request_id' => $req->id,
+                'order_id' => $req->id,
                 'actor_id' => $req->user_id,
                 'status_sebelumnya' => null,
                 'status_sesudah' => 'pending',
@@ -28,7 +28,7 @@ class RiwayatSeeder extends Seeder
             // Jika statusnya sudah berubah (disetujui/ditolak), buat log adminnya
             if ($req->status !== 'pending') {
                 \App\Models\Riwayat::create([
-                    'transaksi_request_id' => $req->id,
+                    'order_id' => $req->id,
                     'actor_id' => $admin->id,
                     'status_sebelumnya' => 'pending',
                     'status_sesudah' => $req->status,

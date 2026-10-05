@@ -1,68 +1,123 @@
 @extends('layouts.admin')
-@section('title', 'Manajemen Barang')
+@section('title', 'Persediaan & Stok')
 
 @section('content')
-    <div class="space-y-6">
-        {{-- HEADER BARIS UTAMA --}}
-        <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+    @include('barang.partials.list-script')
+
+    {{-- Daftar dimuat lewat JSON (barang.data): ganti halaman / filter / tambah / edit / ubah stok / hapus tidak me-reload halaman --}}
+    <div class="space-y-6" x-data="barangList(@js($initial))" @persediaan-diperbarui.window="load()">
+        {{-- 1. JUDUL + TAMBAH MANUAL --}}
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                <h2 class="text-xl font-semibold tracking-tight text-slate-800">Daftar Barang</h2>
+                <h2 class="text-xl font-semibold tracking-tight text-slate-800">Persediaan &amp; Stok</h2>
                 <p class="text-xs text-slate-400 mt-0.5">Manajemen stok logistik dan persediaan kantor</p>
             </div>
 
-            {{-- KELOMPOK AKSI KANAN (CARI, IMPOR EXCEL, & TAMBAH BARANG) --}}
-            <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-                {{-- Form Pencarian --}}
-                <form action="{{ route('admin.barang.index') }}" method="GET" class="flex gap-2 w-full sm:w-auto">
-                    <div class="relative w-full sm:w-60">
-                        <input 
-                            type="text" 
-                            name="search" 
-                            value="{{ request('search') }}" 
-                            placeholder="Cari nama barang..." 
-                            class="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-bps-blue">
-                        
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                            </svg>
-                        </div>
-                    </div>
+            <button type="button" onclick="window.dispatchEvent(new CustomEvent('buka-tambah-persediaan'))"
+                class="flex items-center justify-center gap-2 bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-sm hover:shadow-md cursor-pointer whitespace-nowrap uppercase tracking-wider">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Tambah Manual
+            </button>
+        </div>
 
-                    <button type="submit" class="bg-gradient-to-r from-bps-blue to-bps-blue-dark text-white px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-sm hover:shadow cursor-pointer uppercase tracking-wider">
-                        Cari
-                    </button>
+        {{-- 2. IMPOR EXCEL: diproses di latar belakang (queue), status dilihat di Riwayat Impor --}}
+        <div class="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm flex flex-col lg:flex-row lg:items-center gap-3">
+            <div class="flex items-start gap-3 min-w-0 lg:flex-1">
+                <div class="w-10 h-10 shrink-0 rounded-xl bg-orange-50 text-bps-orange flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-slate-800">Impor dari Excel</p>
+                    <p class="text-xs text-slate-400">Kolom: <span class="font-mono">nama_barang</span>, <span class="font-mono">jumlah</span>, <span class="font-mono">satuan</span>. Nama yang sudah ada stoknya ditambah, nama baru dibuat.</p>
+                </div>
+            </div>
 
-                    @if(request('search'))
-                        <a href="{{ route('admin.barang.index') }}" class="px-3 py-2 rounded-xl border border-slate-200 text-slate-500 text-xs hover:bg-slate-50 flex items-center justify-center font-bold" title="Reset">
-                            ✕
-                        </a>
-                    @endif
-                </form>
-
-                {{-- Form Impor Excel --}}
-                <form action="{{ route('admin.barang.import') }}" method="POST" enctype="multipart/form-data" 
-                    class="flex items-center gap-2 bg-white p-1.5 pl-3 pr-1.5 rounded-xl border border-orange-100/70 shadow-sm w-full sm:w-auto">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
+                <form action="{{ route('barang.import') }}" method="POST" enctype="multipart/form-data" onsubmit="kirimImport(event)"
+                    class="flex items-center gap-2 p-1.5 pl-3 rounded-xl border border-slate-200 bg-slate-50 w-full sm:w-auto sm:min-w-[22rem]">
                     @csrf
-                    <input type="file" name="file_excel" required 
-                        class="block w-full text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-orange-50 file:text-bps-orange hover:file:bg-orange-100 cursor-pointer focus:outline-none" />
-                
-                    <button type="submit" 
-                        class="bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white text-[11px] font-bold py-2 px-3 rounded-lg shadow-sm hover:shadow transition-all cursor-pointer whitespace-nowrap uppercase tracking-wider">
+                    <input type="file" name="file_excel" required accept=".xlsx,.xls,.csv"
+                        class="block min-w-0 flex-1 text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-orange-50 file:text-bps-orange hover:file:bg-orange-100 cursor-pointer focus:outline-none" />
+                    <button type="submit"
+                        class="shrink-0 bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white text-[11px] font-bold py-2 px-3 rounded-lg shadow-sm hover:shadow transition-all cursor-pointer whitespace-nowrap uppercase tracking-wider disabled:opacity-60 disabled:cursor-wait">
                         Impor
                     </button>
                 </form>
 
-                {{-- Tombol Tambah Barang Manual --}}
-                <button onclick="document.getElementById('modalTambah').classList.remove('hidden')"
-                    class="flex items-center justify-center gap-2 bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-sm hover:shadow-md cursor-pointer whitespace-nowrap uppercase tracking-wider">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                <a href="{{ route('barang.import.template') }}"
+                    class="flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer whitespace-nowrap uppercase tracking-wider">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
-                    Tambah Manual
+                    Unduh Template
+                </a>
+
+                <button type="button" onclick="window.dispatchEvent(new CustomEvent('buka-riwayat-impor'))"
+                    class="flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer whitespace-nowrap uppercase tracking-wider">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Riwayat Impor
                 </button>
             </div>
         </div>
+
+        {{-- 3. FILTER: cari (debounce), urutan, stok habis — daftar dimuat ulang lewat JSON --}}
+        <form action="{{ route('barang.index') }}" method="GET" @submit.prevent="search()"
+            class="rounded-2xl border border-slate-200/70 bg-white p-3 shadow-sm flex flex-col md:flex-row md:items-center gap-3">
+            <div class="flex items-center gap-2 md:flex-1 min-w-0">
+                <div class="relative flex-1 min-w-0">
+                    <input
+                        type="text"
+                        name="search"
+                        x-model="filters.search" @input.debounce.400ms="search()"
+                        placeholder="Cari nama persediaan..."
+                        class="w-full pl-9 pr-9 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
+
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                    </div>
+
+                    {{-- Hapus kata kunci (di dalam kolom pencarian) --}}
+                    <button type="button" x-show="filters.search" x-cloak @click="resetSearch()" title="Hapus pencarian" aria-label="Hapus pencarian"
+                        class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <button type="submit" class="shrink-0 bg-gradient-to-r from-bps-blue to-bps-blue-dark text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm hover:shadow cursor-pointer uppercase tracking-wider">
+                    Cari
+                </button>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                {{-- Urutan: terpopuler = paling sering diminta (jumlah pengajuan disetujui) --}}
+                <label class="flex items-center gap-2 text-[11px] font-semibold text-slate-500 whitespace-nowrap">
+                    Urutkan
+                    <select x-model="filters.urut" @change="search()"
+                        class="py-2 pl-3 pr-8 rounded-xl border border-slate-200 bg-white text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-bps-blue cursor-pointer">
+                        <option value="populer">Terpopuler (90 hari terakhir)</option>
+                        <option value="populer_total">Terpopuler (total)</option>
+                        <option value="terbaru">Terbaru</option>
+                        <option value="nama">Nama A–Z</option>
+                    </select>
+                </label>
+
+                <label class="flex items-center gap-2 text-[11px] font-semibold text-slate-500 cursor-pointer select-none whitespace-nowrap">
+                    <input type="checkbox" role="switch" name="stok_habis" value="1" x-model="filters.stokHabis" @change="search()" class="peer sr-only">
+                    <span aria-hidden="true" class="relative inline-block w-9 h-5 shrink-0 rounded-full bg-slate-300 transition-colors peer-checked:bg-bps-blue peer-focus-visible:ring-2 peer-focus-visible:ring-bps-blue/40 after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-4"></span>
+                    Tampilkan stok habis
+                </label>
+            </div>
+        </form>
 
         {{-- TABEL DAFTAR BARANG --}}
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -72,126 +127,289 @@
                         <tr class="bg-bps-blue/5 border-b border-gray-100">
                             <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider">No</th>
                             <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider">Foto</th>
-                            <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider">Nama Barang</th>
+                            <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider">Kode</th>
+                            <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider">Nama Persediaan</th>
                             <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider">Stock</th>
+                            <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider">Diminta</th>
                             <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider">Satuan</th>
                             <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-50">
-                        @forelse($barang as $i => $item)
-                            <tr class="hover:bg-gray-50 transition">
-                                <td class="px-6 py-4 text-sm text-gray-500">{{ $barang->firstItem() + $i }}</td>
-                                
+                    <tbody class="divide-y divide-gray-50 transition-opacity" :class="loading && items.length && 'opacity-50'">
+                        <template x-for="(item, i) in items" :key="item.id">
+                            {{-- Stok habis: baris abu-abu, kolom aksi tetap aktif agar admin bisa menambah stok --}}
+                            <tr class="transition" :class="item.tersedia > 0 ? 'hover:bg-gray-50' : 'bg-slate-50 [&>td:not(:last-child)]:opacity-50 [&_img]:grayscale'">
+                                <td class="px-6 py-4 text-sm text-gray-500" x-text="meta.from + i"></td>
+
                                 {{-- FOTO BARANG --}}
                                 <td class="px-6 py-4">
                                     <div class="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 flex-shrink-0 flex items-center justify-center">
-                                        <img src="{{ $item->foto_url }}" alt="{{ $item->nama_barang }}" class="w-full h-full object-cover">
+                                        <img :src="item.foto_url" :alt="item.nama_barang" class="w-full h-full object-cover">
                                     </div>
                                 </td>
 
-                                <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ $item->nama_barang }}</td>
+                                <td class="px-6 py-4 text-sm text-gray-500 font-mono" x-text="item.stock_id ?? '-'"></td>
+                                <td class="px-6 py-4 text-sm font-semibold text-gray-900" x-text="item.nama_barang"></td>
+                                {{-- Stok fisik; jika ada pengajuan pending, tampilkan yang sudah diajukan & sisa tersedia --}}
                                 <td class="px-6 py-4">
-                                    <span class="inline-flex items-center gap-1 text-sm font-bold {{ $item->stock < 5 ? 'text-red-600' : 'text-bps-green' }}">
-                                        {{ $item->stock }}
-                                    </span>
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="text-sm font-bold tabular-nums" x-text="item.stock"
+                                            :class="item.tersedia <= 0 ? 'text-slate-500' : (item.tersedia < 5 ? 'text-red-600' : 'text-bps-green')"></span>
+                                        <span x-show="item.tersedia <= 0" class="px-1.5 py-0.5 rounded-md bg-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500">Habis</span>
+                                    </div>
+                                    <p x-show="item.dipesan > 0" class="mt-0.5 text-[11px] font-medium text-amber-600 whitespace-nowrap"
+                                        x-text="`${item.dipesan} diajukan · ${item.tersedia} tersedia`"></p>
                                 </td>
-                                <td class="px-6 py-4 text-sm text-gray-600">{{ $item->satuan }}</td>
+                                {{-- Popularitas: jumlah pengajuan yang disetujui (90 hari terakhir & total) --}}
+                                {{-- Gaya sama dengan kartu katalog; angka tidak diringkas (tampilan pengelolaan) --}}
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <template x-if="item.diminta_total > 0">
+                                        <div>
+                                            <p class="flex items-center gap-1 text-xs" :class="item.diminta_90_hari > 0 ? 'text-slate-700' : 'text-slate-400'">
+                                                <svg class="w-4 h-4 shrink-0" :class="item.diminta_90_hari > 0 ? 'text-bps-orange' : 'text-slate-300'" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                                    <path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd" />
+                                                </svg>
+                                                <span class="text-sm font-bold tabular-nums" :class="item.diminta_90_hari > 0 ? 'text-slate-800' : 'text-slate-400'" x-text="item.diminta_90_hari + '×'"></span>
+                                                <span class="font-medium">diminta</span>
+                                                <span class="text-slate-400">· 90 hari terakhir</span>
+                                            </p>
+                                            <p class="mt-0.5 pl-5 text-[11px] text-slate-400" x-text="`${item.diminta_total}× total`"></p>
+                                        </div>
+                                    </template>
+                                    <span x-show="item.diminta_total === 0" class="text-sm text-slate-300" title="Belum pernah diminta">—</span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-600" x-text="item.satuan"></td>
                                 <td class="px-6 py-4">
                                     <div class="flex items-center gap-2">
-                                        <button
-                                            onclick="openEditModal('{{ $item->id }}', '{{ addslashes($item->nama_barang) }}', {{ $item->stock }}, '{{ $item->satuan }}', '{{ $item->foto_url }}')"
+                                        <button title="Ubah Stok"
+                                            @click="openStockModal(item.id, item.nama_barang, item.stock, item.dipesan, item.satuan)"
+                                            class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition cursor-pointer">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                                            </svg>
+                                        </button>
+                                        <button title="Edit Persediaan"
+                                            @click="openEditModal(item.id, item.stock_id ?? '', item.nama_barang, item.satuan, item.foto_url)"
                                             class="p-1.5 rounded-lg bg-bps-blue/10 text-bps-blue hover:bg-bps-blue/20 transition cursor-pointer">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                     d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                             </svg>
                                         </button>
-                                        <form action="{{ route('admin.barang.destroy', $item) }}" method="POST"
-                                            onsubmit="return confirm('Hapus barang ini beserta fotonya?')">
-                                            @csrf @method('DELETE')
-                                            <button type="submit"
-                                                class="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition cursor-pointer">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
-                                        </form>
+                                        {{-- Persediaan yang pernah diajukan tidak bisa dihapus (dicek juga di server) --}}
+                                        <button type="button" @click="hapusPersediaan(item)" :disabled="!item.bisa_dihapus"
+                                            :title="item.bisa_dihapus ? 'Hapus Persediaan' : 'Tidak bisa dihapus: sudah pernah diajukan'"
+                                            class="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-50">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6" class="px-6 py-12 text-center text-gray-400 text-sm">Belum ada data barang.</td>
-                            </tr>
-                        @endforelse
+                        </template>
+
+                        <tr x-show="loading && !items.length">
+                            <td colspan="8" class="px-6 py-12 text-center text-gray-400 text-sm">Memuat data persediaan...</td>
+                        </tr>
+                        <tr x-show="!loading && !error && !items.length" x-cloak>
+                            <td colspan="8" class="px-6 py-12 text-center text-gray-400 text-sm">Belum ada data persediaan.</td>
+                        </tr>
+                        <tr x-show="error" x-cloak>
+                            <td colspan="8" class="px-6 py-12 text-center text-sm text-red-600">
+                                <span x-text="error"></span>
+                                <button type="button" @click="load()" class="ml-2 font-semibold underline cursor-pointer">Coba lagi</button>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
-            @if ($barang->hasPages())
-                <div class="px-6 py-4 border-t border-gray-100">
-                    {{ $barang->links() }}
-                </div>
-            @endif
+            <div class="px-6 py-4 border-t border-gray-100" x-show="meta.total > 0" x-cloak>
+                @include('barang.partials.pagination')
+            </div>
         </div>
     </div>
 
-    {{-- MODAL TAMBAH BARANG --}}
-    <div id="modalTambah" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    {{-- MODAL TAMBAH PERSEDIAAN: pilih persediaan yang ada (ketik untuk mencari) lalu tambah stoknya,
+         atau buat persediaan baru. Nama baru yang ternyata sudah ada tidak dibuat ganda (stoknya ditambah). --}}
+    <div id="modalTambah" data-dialog class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+        role="dialog" aria-modal="true" aria-labelledby="judulTambah"
+        x-data="tambahPersediaan(@js(route('barang.data')))" @buka-tambah-persediaan.window="buka()">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 sm:p-8 max-h-[90dvh] overflow-y-auto">
             <div class="flex items-center justify-between mb-5">
-                <h3 class="text-lg font-bold text-gray-900">Tambah Barang</h3>
-                <button onclick="document.getElementById('modalTambah').classList.add('hidden')"
+                <h3 id="judulTambah" class="text-lg font-bold text-gray-900">Tambah Persediaan</h3>
+                <button type="button" onclick="document.getElementById('modalTambah').classList.add('hidden')" aria-label="Tutup" title="Tutup"
                     class="text-gray-400 hover:text-gray-600 cursor-pointer">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
-            <form action="{{ route('admin.barang.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+            <form action="{{ route('barang.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4" onsubmit="kirimFormPersediaan(event, 'modalTambah')">
                 @csrf
+                <input type="hidden" name="barang_id" :value="pilihan ? pilihan.id : ''">
+
+                {{-- 1. Pilih persediaan --}}
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Nama Barang</label>
-                    <input type="text" name="nama_barang" required
-                        class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
+                    <label for="cariPersediaan" class="block text-sm font-semibold text-gray-700 mb-1.5">Persediaan</label>
+
+                    {{-- Kolom cari + daftar pilihan. Daftar ada di dalam dialog (bukan melayang) dengan tinggi tetap,
+                         jadi dialog langsung cukup tinggi dan tidak berubah ukuran saat memuat / hasil kosong --}}
+                    <div x-show="!pilihan && !baru">
+                        <div class="relative">
+                            <input id="cariPersediaan" type="text" x-ref="cari" x-model="kata" autocomplete="off"
+                                @input.debounce.300ms="cari()"
+                                @keydown.arrow-down.prevent="gerak(1)" @keydown.arrow-up.prevent="gerak(-1)"
+                                @keydown.enter.prevent="pilihAktif()"
+                                role="combobox" aria-autocomplete="list" aria-controls="daftarPersediaan" aria-expanded="true"
+                                placeholder="Ketik nama persediaan..." class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue pl-9">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="mt-2 rounded-xl border border-gray-200 overflow-hidden">
+                            <ul id="daftarPersediaan" role="listbox" class="h-72 overflow-y-auto py-1 transition-opacity" :class="memuat && hasil.length && 'opacity-50'">
+                                {{-- Memuat pertama kali: baris abu-abu pengisi tempat --}}
+                                <template x-if="memuat && !hasil.length">
+                                    <li class="space-y-1" aria-hidden="true">
+                                        <template x-for="n in 7" :key="n">
+                                            <div class="px-4 py-2.5 flex items-center justify-between gap-3 animate-pulse">
+                                                <span class="h-3.5 rounded bg-gray-100" :style="`width: ${45 + (n * 7) % 35}%`"></span>
+                                                <span class="h-3 w-20 rounded bg-gray-100"></span>
+                                            </div>
+                                        </template>
+                                    </li>
+                                </template>
+
+                                <template x-for="(item, i) in hasil" :key="item.id">
+                                    <li role="option" :aria-selected="(i === aktif).toString()" @click="pilih(item)" @mouseenter="aktif = i"
+                                        class="px-4 py-2 cursor-pointer flex items-center justify-between gap-3" :class="i === aktif && 'bg-bps-blue/5'">
+                                        <span class="min-w-0">
+                                            <span class="block text-sm text-gray-800 truncate" x-text="item.nama_barang"></span>
+                                            <span x-show="item.stock_id" class="block text-[10px] font-mono text-gray-400" x-text="item.stock_id"></span>
+                                        </span>
+                                        <span class="text-xs text-gray-400 shrink-0" x-text="`Stok ${item.stock} ${item.satuan}`"></span>
+                                    </li>
+                                </template>
+
+                                <li x-show="!memuat && !hasil.length" class="h-full flex items-center justify-center px-4 text-sm text-gray-400"
+                                    x-text="kata.trim() ? 'Persediaan tidak ditemukan.' : 'Belum ada persediaan.'"></li>
+                            </ul>
+
+                            {{-- Selalu terlihat di bawah daftar --}}
+                            <button type="button" role="option" :aria-selected="(aktif === hasil.length).toString()" @click="buatBaru()" @mouseenter="aktif = hasil.length"
+                                class="w-full text-left px-4 py-2.5 border-t border-gray-100 cursor-pointer text-sm font-semibold text-bps-blue hover:bg-bps-blue/5"
+                                :class="aktif === hasil.length && 'bg-bps-blue/5'">
+                                + Buat persediaan baru<span x-show="kata.trim()" x-text="` '${kata.trim()}'`"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {{-- Persediaan yang dipilih --}}
+                    <div x-show="pilihan" x-cloak class="flex items-center justify-between gap-3 p-3 rounded-xl border border-bps-blue/20 bg-bps-blue/5">
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-gray-900 truncate" x-text="pilihan?.nama_barang"></p>
+                            <p class="text-xs text-gray-500" x-text="pilihan ? `Stok saat ini ${pilihan.stock} ${pilihan.satuan}` + (pilihan.stock_id ? ` · ${pilihan.stock_id}` : '') : ''"></p>
+                        </div>
+                        <button type="button" @click="ganti()" class="shrink-0 text-xs font-semibold text-bps-blue hover:underline cursor-pointer">Ganti</button>
+                    </div>
+
+                    {{-- Mode persediaan baru --}}
+                    <div x-show="baru" x-cloak class="flex items-center justify-between gap-3 p-3 rounded-xl border border-emerald-200 bg-emerald-50">
+                        <p class="text-sm font-semibold text-emerald-800">Persediaan baru</p>
+                        <button type="button" @click="ganti()" class="shrink-0 text-xs font-semibold text-emerald-700 hover:underline cursor-pointer">Pilih yang sudah ada</button>
+                    </div>
                 </div>
 
-                {{-- Input Foto Barang --}}
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Foto Barang (Auto Kompres)</label>
-                    <input type="file" name="foto" accept="image/*" onchange="autoCompressImage(this)"
-                        class="block w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-bps-blue/10 file:text-bps-blue hover:file:bg-bps-blue/20 cursor-pointer" />
-                    <span id="compressStatusTambah" class="text-[11px] text-bps-blue mt-1 block font-medium"></span>
+                {{-- 2. Data persediaan baru (hanya terkirim saat membuat baru) --}}
+                <template x-if="baru">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Nama Persediaan</label>
+                            <input type="text" name="nama_barang" x-model="namaBaru" @input.debounce.300ms="cekNama()" required maxlength="255" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
+                            <p x-show="namaSudahAda" class="mt-1.5 text-xs text-amber-700"
+                                x-text="`Nama ini sudah ada: stok akan ditambahkan ke '${namaSudahAda}', tidak dibuat ganda.`"></p>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1.5">Kode Persediaan <span class="font-normal text-gray-400">(opsional)</span></label>
+                                <input type="text" name="stock_id" maxlength="50" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1.5">Satuan</label>
+                                <input type="text" name="satuan" placeholder="pcs, unit, dll" required maxlength="50" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Foto Persediaan (Auto Kompres)</label>
+                            <input type="file" name="foto" accept="image/*" onchange="autoCompressImage(this)"
+                                class="block w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-bps-blue/10 file:text-bps-blue hover:file:bg-bps-blue/20 cursor-pointer" />
+                            <span id="compressStatusTambah" class="text-[11px] text-bps-blue mt-1 block font-medium"></span>
+                        </div>
+                    </div>
+                </template>
+
+                {{-- 3. Jumlah --}}
+                <div x-show="pilihan || baru" x-cloak>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5" x-text="pilihan ? 'Jumlah stok ditambahkan' : 'Stok awal'"></label>
+                    <input type="number" name="stock" min="1" required class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">Stock</label>
-                        <input type="number" name="stock" min="0" required
-                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">Satuan</label>
-                        <input type="text" name="satuan" placeholder="pcs, unit, dll" required
-                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
-                    </div>
-                </div>
+                <p data-galat role="alert" class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700"></p>
                 <div class="flex gap-3 pt-2">
                     <button type="button" onclick="document.getElementById('modalTambah').classList.add('hidden')"
                         class="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 cursor-pointer">Batal</button>
-                    <button type="submit"
-                        class="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-bps-blue to-bps-blue-dark text-white text-sm font-semibold hover:from-bps-blue-dark hover:to-bps-blue transition cursor-pointer">Simpan</button>
+                    <button type="submit" :disabled="!pilihan && !baru"
+                        class="disabled:opacity-60 disabled:cursor-not-allowed flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-bps-blue to-bps-blue-dark text-white text-sm font-semibold hover:from-bps-blue-dark hover:to-bps-blue transition cursor-pointer">Simpan</button>
                 </div>
             </form>
         </div>
     </div>
 
+    {{-- MODAL HAPUS PERSEDIAAN --}}
+    <div id="modalHapus" data-dialog class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+        role="dialog" aria-modal="true" aria-labelledby="judulHapus">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div class="flex items-start gap-3 mb-4">
+                <div class="w-10 h-10 shrink-0 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </div>
+                <div class="min-w-0">
+                    <h3 id="judulHapus" class="text-lg font-bold text-gray-900">Hapus Persediaan?</h3>
+                    <p class="text-xs text-gray-500 mt-1">
+                        Persediaan <span id="hapusNama" class="font-semibold text-gray-700"></span> beserta fotonya akan dihapus permanen.
+                    </p>
+                </div>
+                <button type="button" onclick="document.getElementById('modalHapus').classList.add('hidden')" aria-label="Tutup" title="Tutup"
+                    class="ml-auto shrink-0 -mt-1 -mr-1 p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-pointer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <p id="hapusGalat" role="alert" class="hidden mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700"></p>
+
+            <div class="flex gap-3">
+                <button type="button" onclick="document.getElementById('modalHapus').classList.add('hidden')"
+                    class="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 cursor-pointer">Batal</button>
+                <button type="button" id="tombolHapus" onclick="kirimHapus()"
+                    class="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-semibold transition cursor-pointer disabled:opacity-60 disabled:cursor-wait">Ya, Hapus</button>
+            </div>
+        </div>
+    </div>
+
     {{-- MODAL EDIT BARANG --}}
-    <div id="modalEdit" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div id="modalEdit" data-dialog class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
             <div class="flex items-center justify-between mb-5">
-                <h3 class="text-lg font-bold text-gray-900">Edit Barang</h3>
+                <h3 class="text-lg font-bold text-gray-900">Edit Persediaan</h3>
                 <button onclick="document.getElementById('modalEdit').classList.add('hidden')"
                     class="text-gray-400 hover:text-gray-600 cursor-pointer">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,17 +417,22 @@
                     </svg>
                 </button>
             </div>
-            <form id="formEdit" method="POST" enctype="multipart/form-data" class="space-y-4">
+            <form id="formEdit" method="POST" enctype="multipart/form-data" class="space-y-4" onsubmit="kirimFormPersediaan(event, 'modalEdit')">
                 @csrf @method('PUT')
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Nama Barang</label>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Kode Persediaan</label>
+                    <input type="text" id="editKode" name="stock_id" maxlength="50"
+                        class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Nama Persediaan</label>
                     <input type="text" id="editNama" name="nama_barang" required
                         class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
                 </div>
 
                 {{-- Input Pratinjau & Ubah Foto --}}
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Ganti Foto Barang (Auto Kompres)</label>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Ganti Foto Persediaan (Auto Kompres)</label>
                     <div class="flex items-center gap-3 mb-2">
                         <img id="editPreviewFoto" src="" class="w-12 h-12 rounded-xl object-cover border border-gray-200">
                         <span class="text-xs text-gray-400">Foto saat ini</span>
@@ -219,33 +442,398 @@
                     <span id="compressStatusEdit" class="text-[11px] text-bps-blue mt-1 block font-medium"></span>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">Stock</label>
-                        <input type="number" id="editStock" name="stock" min="0" required
-                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">Satuan</label>
-                        <input type="text" id="editSatuan" name="satuan" required
-                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
-                    </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Satuan</label>
+                    <input type="text" id="editSatuan" name="satuan" required
+                        class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
                 </div>
+                <p data-galat role="alert" class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700"></p>
                 <div class="flex gap-3 pt-2">
                     <button type="button" onclick="document.getElementById('modalEdit').classList.add('hidden')"
                         class="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 cursor-pointer">Batal</button>
                     <button type="submit"
-                        class="flex-1 px-4 py-2.5 rounded-xl bg-bps-orange text-white text-sm font-semibold hover:bg-bps-orange-dark transition cursor-pointer">Update</button>
+                        class="disabled:opacity-60 disabled:cursor-wait flex-1 px-4 py-2.5 rounded-xl bg-bps-orange text-white text-sm font-semibold hover:bg-bps-orange-dark transition cursor-pointer">Update</button>
                 </div>
             </form>
         </div>
     </div>
 
+    {{-- MODAL UBAH STOK --}}
+    <div id="modalStock" data-dialog class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div class="flex items-center justify-between mb-5">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-900">Ubah Stok</h3>
+                    <p id="stockInfo" class="text-xs text-gray-400 mt-0.5"></p>
+                </div>
+                <button onclick="document.getElementById('modalStock').classList.add('hidden')"
+                    class="text-gray-400 hover:text-gray-600 cursor-pointer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="formStock" method="POST" class="space-y-4" onsubmit="kirimFormPersediaan(event, 'modalStock')">
+                @csrf @method('PATCH')
+                <div class="grid grid-cols-3 gap-2 text-xs font-semibold">
+                    <label class="cursor-pointer">
+                        <input type="radio" name="operasi" value="tambah" class="peer sr-only" checked>
+                        <span class="block text-center px-3 py-2 rounded-xl border border-gray-200 text-gray-600 peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:text-emerald-700">+ Tambah</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="operasi" value="kurang" class="peer sr-only">
+                        <span class="block text-center px-3 py-2 rounded-xl border border-gray-200 text-gray-600 peer-checked:border-rose-500 peer-checked:bg-rose-50 peer-checked:text-rose-700">− Kurangi</span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="operasi" value="set" class="peer sr-only">
+                        <span class="block text-center px-3 py-2 rounded-xl border border-gray-200 text-gray-600 peer-checked:border-bps-blue peer-checked:bg-bps-blue/10 peer-checked:text-bps-blue">= Atur Jadi</span>
+                    </label>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Jumlah</label>
+                    <input type="number" name="jumlah" min="0" required
+                        class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
+                </div>
+                <p data-galat role="alert" class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700"></p>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('modalStock').classList.add('hidden')"
+                        class="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 cursor-pointer">Batal</button>
+                    <button type="submit"
+                        class="disabled:opacity-60 disabled:cursor-wait flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-bps-blue to-bps-blue-dark text-white text-sm font-semibold hover:from-bps-blue-dark hover:to-bps-blue transition cursor-pointer">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- DIALOG RIWAYAT IMPOR: daftar unggahan & statusnya, dimuat ulang manual lewat tombol Muat Ulang --}}
+    <div x-data="riwayatImport(@js(route('barang.import.riwayat')))" @buka-riwayat-impor.window="buka()" @keydown.escape.window="open = false">
+        <div x-show="open" x-cloak class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" @click.self="open = false">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" role="dialog" aria-modal="true" aria-labelledby="judulRiwayatImpor">
+                <div class="flex items-center justify-between gap-3 px-6 py-4 border-b border-gray-100">
+                    <div>
+                        <h3 id="judulRiwayatImpor" class="text-lg font-bold text-gray-900">Riwayat Impor</h3>
+                        <p class="text-xs text-gray-400 mt-0.5">20 unggahan terakhir. Impor berjalan di latar belakang; tekan Muat Ulang untuk melihat status terbaru.</p>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button type="button" @click="muat()" :disabled="loading"
+                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition cursor-pointer disabled:opacity-60 disabled:cursor-wait">
+                            <svg class="w-4 h-4" :class="loading && 'animate-spin'" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Muat Ulang
+                        </button>
+                        <button type="button" @click="open = false" class="text-gray-400 hover:text-gray-600 cursor-pointer" aria-label="Tutup">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-y-auto px-6 py-4 space-y-3">
+                    <p x-show="error" x-cloak class="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700" x-text="error"></p>
+                    <p x-show="loading && !items.length" class="py-8 text-center text-sm text-gray-400">Memuat riwayat impor...</p>
+                    <p x-show="!loading && !error && !items.length" x-cloak class="py-8 text-center text-sm text-gray-400">Belum ada file yang diimpor.</p>
+
+                    <template x-for="item in items" :key="item.id">
+                        <div class="rounded-xl border border-gray-100 p-4">
+                            <div class="flex flex-wrap items-start justify-between gap-2">
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-gray-900 break-all" x-text="item.nama_file"></p>
+                                    <p class="text-xs text-gray-400 mt-0.5" x-text="`Diunggah ${item.diunggah}${item.oleh ? ' oleh ' + item.oleh : ''}`"></p>
+                                </div>
+                                <span class="inline-flex shrink-0 px-2.5 py-1 rounded-full text-xs font-bold" :class="warnaStatus[item.status]" x-text="item.status_label"></span>
+                            </div>
+                            <p x-show="item.keterangan" class="mt-2 text-xs whitespace-pre-line"
+                                :class="item.status === 'error' ? 'text-red-700' : 'text-gray-600'" x-text="item.keterangan"></p>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Pesan hasil aksi (pengganti flash message, halaman tidak di-reload) --}}
+    <div id="pesanPersediaan" aria-live="polite" class="fixed bottom-4 right-4 left-4 sm:left-auto sm:w-96 z-[60] space-y-2"></div>
+
     <script>
-        function openEditModal(id, nama, stock, satuan, fotoUrl) {
-            document.getElementById('formEdit').action = `/admin/barang/${id}`;
+        const CSRF_TOKEN = @js(csrf_token());
+
+        // Tampilkan pesan singkat: success (hijau), warning (kuning, lebih lama), error (merah)
+        function tampilkanPesan(teks, jenis = 'success') {
+            const warna = {
+                success: 'bg-green-50 border-green-200 text-green-800',
+                warning: 'bg-amber-50 border-amber-200 text-amber-800',
+                error: 'bg-red-50 border-red-200 text-red-800',
+            }[jenis];
+            const el = document.createElement('div');
+            el.setAttribute('role', jenis === 'success' ? 'status' : 'alert');
+            el.className = `p-4 rounded-xl border text-sm shadow-lg ${warna}`;
+            el.textContent = teks;
+            document.getElementById('pesanPersediaan').appendChild(el);
+            setTimeout(() => el.remove(), jenis === 'success' ? 3500 : 8000);
+        }
+
+        // Daftar persediaan (barangList) memuat ulang data saat event ini dikirim
+        const muatUlangDaftar = () => window.dispatchEvent(new CustomEvent('persediaan-diperbarui'));
+
+        // Kirim form modal (tambah / edit / ubah stok) lewat fetch; respons JSON
+        async function kirimFormPersediaan(event, modalId) {
+            event.preventDefault();
+            const form = event.target;
+            const tombol = form.querySelector('button[type="submit"]');
+            const galat = form.querySelector('[data-galat]');
+
+            tombol.disabled = true;
+            galat.classList.add('hidden');
+
+            try {
+                // FormData membawa _token, _method (PUT/PATCH), dan file foto
+                const response = await fetch(form.action, { method: 'POST', headers: { 'Accept': 'application/json' }, body: new FormData(form) });
+                const json = await response.json().catch(() => ({}));
+
+                if (!response.ok) {
+                    galat.textContent = json.errors ? Object.values(json.errors).flat().join(' ') : (json.message ?? 'Gagal menyimpan. Silakan coba lagi.');
+                    galat.classList.remove('hidden');
+                    return;
+                }
+
+                document.getElementById(modalId).classList.add('hidden');
+                form.reset();
+                form.querySelectorAll('[id^="compressStatus"]').forEach(el => el.textContent = '');
+                tampilkanPesan(json.message);
+                if (json.warning) tampilkanPesan(json.warning, 'warning');
+                muatUlangDaftar();
+            } catch (e) {
+                galat.textContent = 'Gagal menyimpan. Periksa koneksi lalu coba lagi.';
+                galat.classList.remove('hidden');
+            } finally {
+                tombol.disabled = false;
+            }
+        }
+
+        // Hapus persediaan: konfirmasi lewat dialog aplikasi (bukan dialog bawaan browser)
+        let persediaanDihapus = null;
+
+        function hapusPersediaan(item) {
+            persediaanDihapus = item;
+            document.getElementById('hapusNama').textContent = `'${item.nama_barang}'`;
+            document.getElementById('hapusGalat').classList.add('hidden');
+            document.getElementById('tombolHapus').disabled = false;
+            document.getElementById('modalHapus').classList.remove('hidden');
+        }
+
+        async function kirimHapus() {
+            const tombol = document.getElementById('tombolHapus');
+            const galat = document.getElementById('hapusGalat');
+            tombol.disabled = true;
+            galat.classList.add('hidden');
+
+            try {
+                const response = await fetch(@js(route('barang.destroy', ':id')).replace(':id', persediaanDihapus.id), {
+                    method: 'DELETE',
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+                });
+                const json = await response.json().catch(() => ({}));
+                muatUlangDaftar();
+
+                if (!response.ok) {
+                    // Mis. persediaan sudah pernah diajukan: tetap di dialog dengan alasannya
+                    galat.textContent = json.message ?? 'Gagal menghapus. Silakan coba lagi.';
+                    galat.classList.remove('hidden');
+                    return;
+                }
+
+                document.getElementById('modalHapus').classList.add('hidden');
+                tampilkanPesan(json.message);
+            } catch (e) {
+                galat.textContent = 'Gagal menghapus. Periksa koneksi lalu coba lagi.';
+                galat.classList.remove('hidden');
+            } finally {
+                tombol.disabled = false;
+            }
+        }
+
+        // Dialog Tambah Persediaan: cari persediaan yang ada (pakai API daftar persediaan), atau buat baru
+        function tambahPersediaan(dataUrl) {
+            const rapikan = (teks) => teks.replace(/[\s\u00A0]+/g, ' ').trim();
+            const cariDi = async (kata) => {
+                const params = new URLSearchParams({ search: rapikan(kata), stok_habis: '1', per_page: '12', urut: 'nama' });
+                const response = await fetch(`${dataUrl}?${params}`, { headers: { 'Accept': 'application/json' } });
+                if (!response.ok) throw new Error(response.status);
+                return (await response.json()).data;
+            };
+            let urutanCari = 0;
+
+            return {
+                kata: '',
+                hasil: [],
+                aktif: 0,
+                memuat: false,
+                pilihan: null,   // persediaan yang dipilih dari daftar
+                baru: false,     // membuat persediaan baru
+                namaBaru: '',
+                namaSudahAda: '', // nama persediaan yang sama dengan nama baru (stok akan ditambahkan ke sana)
+
+                buka() {
+                    Object.assign(this, { kata: '', hasil: [], aktif: 0, memuat: true, pilihan: null, baru: false, namaBaru: '', namaSudahAda: '' });
+                    const form = this.$root.querySelector('form');
+                    form.reset();
+                    bersihkanGalat(form);
+                    this.$root.classList.remove('hidden');
+                    this.$nextTick(() => this.$refs.cari.focus());
+                    this.cari(); // daftar langsung terisi (urut nama) sebelum mengetik
+                },
+
+                async cari() {
+                    const nomor = ++urutanCari;
+                    this.memuat = true;
+                    try {
+                        const data = await cariDi(this.kata);
+                        if (nomor !== urutanCari) return;
+                        this.hasil = data;
+                        this.aktif = 0;
+                    } catch (e) {
+                        if (nomor === urutanCari) this.hasil = [];
+                    } finally {
+                        if (nomor === urutanCari) this.memuat = false;
+                    }
+                },
+
+                // Navigasi keyboard: baris terakhir (indeks hasil.length) = "Buat persediaan baru"
+                gerak(langkah) {
+                    this.aktif = Math.min(Math.max(this.aktif + langkah, 0), this.hasil.length);
+                },
+
+                pilihAktif() {
+                    if (this.aktif < this.hasil.length) this.pilih(this.hasil[this.aktif]);
+                    else this.buatBaru();
+                },
+
+                pilih(item) {
+                    this.pilihan = item;
+                    this.baru = false;
+                    this.$nextTick(() => this.$root.querySelector('input[name="stock"]').focus());
+                },
+
+                buatBaru() {
+                    this.baru = true;
+                    this.pilihan = null;
+                    this.namaBaru = rapikan(this.kata);
+                    this.cekNama();
+                    this.$nextTick(() => this.$root.querySelector('input[name="nama_barang"]').focus());
+                },
+
+                ganti() {
+                    this.pilihan = null;
+                    this.baru = false;
+                    this.$nextTick(() => this.$refs.cari.focus());
+                },
+
+                // Peringatan jika nama baru sama dengan persediaan yang ada (server juga tidak membuat ganda)
+                async cekNama() {
+                    const kunci = rapikan(this.namaBaru).toLowerCase();
+                    if (!kunci) { this.namaSudahAda = ''; return; }
+                    try {
+                        const sama = (await cariDi(this.namaBaru)).find((item) => rapikan(item.nama_barang).toLowerCase() === kunci);
+                        this.namaSudahAda = sama ? sama.nama_barang : '';
+                    } catch (e) {
+                        this.namaSudahAda = '';
+                    }
+                },
+            };
+        }
+
+        // Unggah file impor; diproses di latar belakang, jadi respons hanya berarti file diterima
+        async function kirimImport(event) {
+            event.preventDefault();
+            const form = event.target;
+            const tombol = form.querySelector('button[type="submit"]');
+            tombol.disabled = true;
+
+            try {
+                const response = await fetch(form.action, { method: 'POST', headers: { 'Accept': 'application/json' }, body: new FormData(form) });
+                const json = await response.json().catch(() => ({}));
+
+                if (!response.ok) {
+                    tampilkanPesan(json.errors ? Object.values(json.errors).flat().join(' ') : (json.message ?? 'Gagal mengunggah file.'), 'error');
+                    return;
+                }
+
+                form.reset();
+                tampilkanPesan(json.message);
+                window.dispatchEvent(new CustomEvent('buka-riwayat-impor'));
+            } catch (e) {
+                tampilkanPesan('Gagal mengunggah file. Periksa koneksi lalu coba lagi.', 'error');
+            } finally {
+                tombol.disabled = false;
+            }
+        }
+
+        // Dialog Riwayat Impor. Jika ada impor yang baru selesai berhasil, daftar persediaan ikut dimuat ulang.
+        function riwayatImport(url) {
+            let berhasilTerlihat = null; // id impor berstatus success yang sudah pernah tampil
+
+            return {
+                open: false,
+                loading: false,
+                error: '',
+                items: [],
+                warnaStatus: {
+                    start: 'bg-slate-100 text-slate-600',
+                    processing: 'bg-blue-100 text-blue-700',
+                    error: 'bg-red-100 text-red-700',
+                    success: 'bg-green-100 text-green-700',
+                },
+
+                buka() {
+                    this.open = true;
+                    this.muat();
+                },
+
+                async muat() {
+                    this.loading = true;
+                    this.error = '';
+                    try {
+                        const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                        if (!response.ok) throw new Error(response.status);
+                        this.items = (await response.json()).data;
+
+                        const berhasil = this.items.filter(i => i.status === 'success').map(i => i.id);
+                        if (berhasilTerlihat && berhasil.some(id => !berhasilTerlihat.includes(id))) muatUlangDaftar();
+                        berhasilTerlihat = berhasil;
+                    } catch (e) {
+                        this.error = 'Gagal memuat riwayat impor. Silakan coba lagi.';
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+            };
+        }
+
+        // Galat lama dari pengisian sebelumnya tidak ikut tampil saat modal dibuka lagi
+        function bersihkanGalat(form) {
+            form.querySelector('[data-galat]').classList.add('hidden');
+        }
+
+        function openStockModal(id, nama, stock, dipesan, satuan) {
+            const form = document.getElementById('formStock');
+            form.action = "{{ route('barang.update-stock', ':id') }}".replace(':id', id);
+            form.reset();
+            bersihkanGalat(form);
+            document.getElementById('stockInfo').textContent = `${nama} — stok saat ini: ${stock} ${satuan}`
+                + (dipesan > 0 ? ` (${dipesan} sudah diajukan di pengajuan pending)` : '');
+            document.getElementById('modalStock').classList.remove('hidden');
+        }
+
+        function openEditModal(id, kode, nama, satuan, fotoUrl) {
+            const form = document.getElementById('formEdit');
+            form.action = "{{ route('barang.update', ':id') }}".replace(':id', id);
+            form.reset();
+            bersihkanGalat(form);
+            document.getElementById('compressStatusEdit').textContent = '';
+            document.getElementById('editKode').value = kode;
             document.getElementById('editNama').value = nama;
-            document.getElementById('editStock').value = stock;
             document.getElementById('editSatuan').value = satuan;
             document.getElementById('editPreviewFoto').src = fotoUrl;
             document.getElementById('modalEdit').classList.remove('hidden');
@@ -257,7 +845,7 @@
             if (!file) return;
 
             const originalMB = (file.size / 1024 / 1024).toFixed(2);
-            
+
             // Pilih elemen status
             const statusElem = input.nextElementSibling;
             statusElem.innerText = `Mengompresi gambar (${originalMB} MB)...`;
@@ -295,7 +883,7 @@
                     // Konversi ke File Blob (Kualitas 0.7 = 70%)
                     canvas.toBlob(function (blob) {
                         const compressedMB = (blob.size / 1024 / 1024).toFixed(2);
-                        
+
                         // Buat file baru dari blob terkompresi
                         const compressedFile = new File([blob], file.name, {
                             type: 'image/jpeg',

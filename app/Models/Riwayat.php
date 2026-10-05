@@ -3,7 +3,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use App\Models\TransaksiRequest;
 
 class Riwayat extends Model
 {
@@ -17,15 +16,15 @@ class Riwayat extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'transaksi_request_id', 'actor_id',
+        'order_id', 'actor_id',
         'status_sebelumnya', 'status_sesudah', 'catatan'
     ];
 
     protected $casts = ['created_at' => 'datetime'];
 
-    public function transaksiRequest()
+    public function order()
     {
-        return $this->belongsTo(TransaksiRequest::class, 'transaksi_request_id');
+        return $this->belongsTo(Order::class);
     }
 
     public function actor()

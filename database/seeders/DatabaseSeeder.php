@@ -20,7 +20,7 @@ class DatabaseSeeder extends Seeder
             FacilitySeeder::class,
             BookingSeeder::class,
             BarangSeeder::class,
-            TransaksiRequestSeeder::class,
+            OrderSeeder::class,
             RiwayatSeeder::class,
         ]);
     }

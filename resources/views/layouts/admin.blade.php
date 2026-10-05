@@ -38,76 +38,79 @@
             </div>
         </div>
 
-        {{-- Role Badge --}}
-        <div class="px-6 py-3 bg-white/70 border-b border-slate-200/70">
-            <div class="flex items-center gap-2">
-                <div class="w-2 h-2 rounded-full bg-bps-orange animate-pulse"></div>
-                <span class="text-xs font-semibold text-bps-blue-dark uppercase tracking-wider">
-                    {{ auth()->user()->getRoleNames()->first() }}
-                </span>
-            </div>
-        </div>
-
         {{-- Navigation --}}
-        <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-            <p class="text-xs font-bold text-slate-500 uppercase tracking-widest px-3 mb-3">Menu Utama</p>
-
-            {{-- ─── MENU UTAMA KHUSUS ADMIN ─── --}}
-            <a href="{{ route('admin.dashboard') }}"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 group {{ request()->routeIs('admin.dashboard') ? 'bg-bps-orange text-white shadow-sm border border-transparent' : 'text-slate-500 hover:bg-white hover:text-bps-orange' }}">
-                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-                <span class="text-sm font-semibold">Dashboard Admin</span>
-            </a>
-
-            <a href="{{ route('admin.manajemen-user.index') }}"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 {{ request()->routeIs('admin.manajemen-user.*') ? 'bg-bps-orange text-white shadow-sm border border-transparent' : 'text-slate-500 hover:bg-white hover:text-bps-orange' }}">
-                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-                <span class="text-sm font-semibold">Manajemen User</span>
-            </a>
-
-            <a href="{{ route('admin.barang.index') }}"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 {{ request()->routeIs('admin.barang.*') ? 'bg-bps-orange text-white shadow-sm border border-transparent' : 'text-slate-500 hover:bg-white hover:text-bps-orange' }}">
-                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-                <span class="text-sm font-semibold">Manajemen Barang</span>
-            </a>
-
-            <a href="{{ route('admin.transaksi.index') }}"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 {{ request()->routeIs('admin.transaksi.*') ? 'bg-bps-orange text-white shadow-sm border border-transparent' : 'text-slate-500 hover:bg-white hover:text-bps-orange' }}">
-                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                <span class="text-sm font-semibold">Transaksi Barang</span>
-            </a>
-
-            <a href="{{ route('peminjaman.index') }}"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 {{ request()->routeIs('peminjaman.*') ? 'bg-bps-orange text-white shadow-sm border border-transparent' : 'text-slate-500 hover:bg-white hover:text-bps-orange' }}">
-                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span class="text-sm font-semibold">Peminjaman Fasilitas</span>
-            </a>
-        </nav>
-
-        {{-- Logout --}}
-        <div class="p-4 border-t border-slate-200/70">
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit"
-                    class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-500 hover:bg-red-500/10 hover:text-red-500 transition-all cursor-pointer text-sm font-semibold">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        <nav class="flex-1 px-4 py-6 space-y-6 overflow-y-auto">
+            <div class="space-y-1">
+                <a href="{{ route('admin.dashboard') }}"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 group {{ request()->routeIs('admin.dashboard') ? 'bg-bps-orange text-white shadow-sm border border-transparent' : 'text-slate-500 hover:bg-white hover:text-bps-orange' }}">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                     </svg>
-                    Keluar
-                </button>
-            </form>
-        </div>
+                    <span class="text-sm font-semibold">Dashboard</span>
+                </a>
+            </div>
+
+            {{-- ─── PENGAJUAN BARANG ─── --}}
+            <div class="space-y-1">
+                <p class="px-3 mb-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Pengajuan Persediaan</p>
+                <a href="{{ route('barang.katalog') }}"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 {{ request()->routeIs('barang.katalog') ? 'bg-bps-orange text-white shadow-sm border border-transparent' : 'text-slate-500 hover:bg-white hover:text-bps-orange' }}">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                    <span class="text-sm font-semibold">Katalog Persediaan</span>
+                </a>
+
+                <a href="{{ route('pengajuan.saya') }}"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 {{ request()->routeIs('pengajuan.saya') ? 'bg-bps-orange text-white shadow-sm border border-transparent' : 'text-slate-500 hover:bg-white hover:text-bps-orange' }}">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span class="text-sm font-semibold">Pengajuan Saya</span>
+                </a>
+            </div>
+
+            {{-- ─── FASILITAS ─── --}}
+            <div class="space-y-1">
+                <p class="px-3 mb-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Fasilitas</p>
+                <a href="{{ route('peminjaman.index') }}"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 {{ request()->routeIs('peminjaman.*') ? 'bg-bps-orange text-white shadow-sm border border-transparent' : 'text-slate-500 hover:bg-white hover:text-bps-orange' }}">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span class="text-sm font-semibold">Peminjaman</span>
+                </a>
+            </div>
+
+            {{-- ─── KELOLA (barang & stok, persetujuan pengajuan, pengguna) ─── --}}
+            <div class="space-y-1">
+                <p class="px-3 mb-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Kelola</p>
+                <a href="{{ route('barang.index') }}"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 {{ request()->routeIs('barang.index') ? 'bg-bps-orange text-white shadow-sm border border-transparent' : 'text-slate-500 hover:bg-white hover:text-bps-orange' }}">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                    <span class="text-sm font-semibold">Persediaan &amp; Stok</span>
+                </a>
+
+                <a href="{{ route('pengajuan.index') }}"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 {{ request()->routeIs('pengajuan.index') ? 'bg-bps-orange text-white shadow-sm border border-transparent' : 'text-slate-500 hover:bg-white hover:text-bps-orange' }}">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    <span class="text-sm font-semibold">Persetujuan Pengajuan Persediaan</span>
+                </a>
+
+                <a href="{{ route('admin.manajemen-user.index') }}"
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 {{ request()->routeIs('admin.manajemen-user.*') ? 'bg-bps-orange text-white shadow-sm border border-transparent' : 'text-slate-500 hover:bg-white hover:text-bps-orange' }}">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span class="text-sm font-semibold">Pengguna</span>
+                </a>
+            </div>
+        </nav>
     </aside>
 
     {{-- Latar gelap saat sidebar terbuka di layar kecil --}}
@@ -116,9 +119,9 @@
 
     {{-- MAIN CONTENT --}}
     <div class="flex-1 min-w-0 flex flex-col overflow-hidden">
-        {{-- NAVBAR --}}
+        {{-- NAVBAR (relative z-20: dropdown notifikasi & menu akun tampil di atas konten halaman; backdrop-blur membuat lapisan sendiri) --}}
         <header
-            class="h-16 bg-white/90 backdrop-blur-xl border-b border-slate-200/70 flex items-center justify-between gap-3 px-4 sm:px-6 flex-shrink-0 shadow-sm">
+            class="relative z-20 h-16 bg-white/90 backdrop-blur-xl border-b border-slate-200/70 flex items-center justify-between gap-3 px-4 sm:px-6 flex-shrink-0 shadow-sm">
             <div class="flex items-center gap-3 min-w-0">
                 <button type="button" aria-label="Menu"
                     @click="window.matchMedia('(min-width: 1024px)').matches ? sidebarCollapsed = !sidebarCollapsed : sidebarOpen = true"
@@ -136,10 +139,12 @@
 
             <div class="flex items-center gap-3">
                 
+                @include('layouts.partials.ikon-keranjang')
+
                 {{-- ─── 💡 AKUMULASI NOTIFIKASI BARANG & FASILITAS PENDING ─── --}}
                 @php
                     // 1. Ambil data pengajuan permintaan barang pending
-                    $pendingRequests = \App\Models\TransaksiRequest::with('user')
+                    $pendingRequests = \App\Models\Order::with('user')
                                         ->where('status', 'pending')
                                         ->latest()
                                         ->get();
@@ -187,12 +192,12 @@
                             @endif
                         </div>
                         
-                        {{-- 📦 RENDER NOTIFIKASI PERMINTAAN BARANG KELOMPOK --}}
+                        {{-- 📦 RENDER NOTIFIKASI PERMINTAAN PERSEDIAAN --}}
                         @foreach($pendingRequests as $req)
-                            <a href="{{ route('admin.transaksi.index') }}" 
+                            <a href="{{ route('pengajuan.index') }}" 
                                class="block px-4 py-3 hover:bg-gray-50 text-xs text-gray-600 border-b border-gray-50 transition-all">
                                 <p class="font-semibold text-gray-800 leading-normal">
-                                    📦 Ada permintaan barang baru dari <span class="text-bps-orange font-bold">{{ $req->user->username ?? $req->user->name ?? 'User' }}</span>.
+                                    📦 Ada permintaan persediaan baru dari <span class="text-bps-orange font-bold">{{ $req->user->username ?? $req->user->name ?? 'User' }}</span>.
                                 </p>
                                 <span class="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -225,18 +230,7 @@
                     </div>
                 </div>
 
-                {{-- Profile --}}
-                <div class="flex items-center gap-2 pl-3 border-l border-gray-200 flex-shrink-0">
-                    <div class="w-8 h-8 rounded-xl bg-bps-orange flex items-center justify-center shadow-sm">
-                        <span
-                            class="text-white text-xs font-bold uppercase">{{ substr(auth()->user()->username, 0, 1) }}</span>
-                    </div>
-                    <div class="hidden sm:block">
-                        <p class="text-xs font-bold text-gray-800">{{ auth()->user()->username }}</p>
-                        <p class="text-xs text-bps-orange font-semibold capitalize">{{ auth()->user()->getRoleNames()->first() }}
-                        </p>
-                    </div>
-                </div>
+                @include('layouts.partials.menu-akun')
             </div>
         </header>
 
@@ -264,11 +258,23 @@
                     {{ session('error') }}
                 </div>
             @endif
+            @if (session('warning'))
+                <div role="alert"
+                    class="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-center gap-2">
+                    <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd"
+                            d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    {{ session('warning') }}
+                </div>
+            @endif
 
             @yield('content')
         </main>
     </div>
 
+    @include('layouts.partials.dialog-script')
 </body>
 
 </html>

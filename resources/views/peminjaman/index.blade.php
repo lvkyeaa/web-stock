@@ -1,6 +1,6 @@
 @extends($isGuest ? 'layouts.public' : ($isAdmin ? 'layouts.admin' : 'layouts.customer'))
 
-@section('title', $isGuest ? 'Jadwal Fasilitas' : ($isAdmin ? 'Manajemen Persetujuan Peminjaman' : 'Peminjaman Fasilitas'))
+@section('title', $isGuest ? 'Jadwal Fasilitas' : 'Peminjaman')
 
 @section('content')
 @php
@@ -23,7 +23,7 @@
 
                 {{-- 1. JUDUL DAN SUBJUDUL --}}
                 <div>
-                    <h2 class="text-xl font-bold tracking-tight text-bps-blue-dark">Jadwal Fasilitas</h2>
+                    <h2 class="text-xl font-bold tracking-tight text-bps-blue-dark">{{ $isGuest ? 'Jadwal Fasilitas' : 'Peminjaman' }}</h2>
                     <p class="text-xs text-gray-400">Pantau jadwal peminjaman mobil dinas dan ruang rapat</p>
                 </div>
 
@@ -156,7 +156,10 @@
         </div>
 
         {{-- ─── TAB 1: KALENDER ─── --}}
-        <div x-show="tab === 'calendar'">
+        {{-- Saat tab Tabel aktif, kalender TIDAK di-display:none (FullCalendar yang digambar/dimuat ulang saat tersembunyi
+             mengukur lebar 0 dan tampilannya rusak saat dibuka lagi), melainkan disembunyikan dengan tinggi 0 + invisible
+             sehingga lebarnya tetap terukur dengan benar --}}
+        <div :class="tab === 'calendar' ? '' : 'h-0 overflow-hidden invisible'" :aria-hidden="(tab !== 'calendar').toString()">
             <div class="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
                 <div x-ref="calendar" class="min-h-[450px] min-w-[640px]"></div>
             </div>
@@ -358,7 +361,7 @@
                         <template x-if="selected">
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Fasilitas yang diberikan</label>
-                                <select x-model="assignFacilityId"
+                                <select x-model="assignFacilityId" @change="statusError = ''; statusConflicts = []"
                                     class="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-bps-blue focus:ring-4 focus:ring-bps-blue/10 cursor-pointer">
                                     <template x-for="f in (config.facilities[selected.type.code] || [])" :key="f.id">
                                         <option :value="f.id" :selected="f.id === assignFacilityId"
@@ -366,6 +369,23 @@
                                     </template>
                                 </select>
                                 <p class="text-[11px] text-gray-400 mt-1">Pilih fasilitas yang sama atau fasilitas lain yang sejenis. Keputusan dapat diubah kembali.</p>
+
+                                {{-- Gagal setujui/tolak: pesan tampil di dialog ini (dialog tetap terbuka) --}}
+                                <p x-show="statusError" x-cloak role="alert" class="mt-2 text-xs text-red-500 font-semibold" x-text="statusError"></p>
+
+                                {{-- Peminjaman disetujui yang bentrok dengan fasilitas yang dipilih --}}
+                                <template x-if="statusConflicts.length">
+                                    <div class="mt-2 rounded-xl border border-rose-200 bg-rose-50 p-3 space-y-2">
+                                        <p class="text-[11px] font-bold text-rose-700 uppercase">Peminjaman disetujui yang bentrok</p>
+                                        <template x-for="c in statusConflicts" :key="c.id">
+                                            <div class="text-xs text-rose-800 border-t border-rose-100 pt-2 first-of-type:border-0 first-of-type:pt-0">
+                                                <p class="font-semibold" x-text="c.facility + ' · ' + c.user"></p>
+                                                <p x-text="c.start_label + ' – ' + c.end_label"></p>
+                                                <p class="text-rose-700/80 break-words" x-show="c.keperluan" x-text="c.keperluan"></p>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
                             </div>
                         </template>
                     @endif
@@ -423,6 +443,12 @@
                     <h3 class="text-base font-bold text-bps-blue-dark" x-text="confirmBox.title"></h3>
                     <p class="text-sm text-gray-600 mt-1 break-words" x-text="confirmBox.message"></p>
                 </div>
+                <button type="button" @click="answer(false)" aria-label="Tutup" title="Tutup"
+                    class="ml-auto shrink-0 -mt-1 -mr-1 p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-pointer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
             <div class="flex gap-2 justify-end">
                 <button type="button" @click="answer(false)"
@@ -697,6 +723,8 @@
             error: '',
             notice: '',
             selected: null, // peminjaman yang dibuka di dialog detail
+            statusError: '',     // gagal setujui/tolak, tampil di dialog persetujuan
+            statusConflicts: [], // peminjaman disetujui yang bentrok dengan fasilitas yang dipilih
             assignFacilityId: '', // admin: fasilitas yang diberikan (default = yang diminta)
             acting: false,
             confirmBox: { open: false, title: '', message: '', confirmLabel: '', tone: 'primary', resolve: null },
@@ -883,6 +911,8 @@
             openDetail(booking) {
                 this.selected = booking;
                 this.assignFacilityId = (booking.assigned_facility || booking.requested_facility).id;
+                this.statusError = '';
+                this.statusConflicts = [];
             },
 
             // Dialog konfirmasi aplikasi; resolve true jika pengguna menekan tombol konfirmasi
@@ -922,7 +952,8 @@
                 if (!ok) return;
 
                 this.acting = true;
-                let gagal = '';
+                this.statusError = '';
+                this.statusConflicts = [];
                 try {
                     const response = await fetch(booking.status_url, {
                         method: 'PATCH',
@@ -934,21 +965,24 @@
                         body: JSON.stringify(approve && facilityId ? { status, facility_id: facilityId } : { status }),
                     });
                     const json = await response.json().catch(() => ({}));
-                    if (!response.ok) throw new Error(json.message || 'Gagal memperbarui status peminjaman. Silakan coba lagi.');
-                    this.notice = json.message;
-                    setTimeout(() => this.notice = '', 4000);
+                    if (response.ok) {
+                        this.notice = json.message;
+                        setTimeout(() => this.notice = '', 4000);
+                        this.selected = null;
+                    } else {
+                        // Mis. fasilitas sudah dipakai peminjaman lain yang disetujui: dialog tetap terbuka,
+                        // pesan & peminjaman yang bentrok tampil di bawah pilihan fasilitas
+                        this.statusError = json.message || 'Gagal memperbarui status peminjaman. Silakan coba lagi.';
+                        this.statusConflicts = json.conflicts || [];
+                    }
                 } catch (e) {
-                    this.notice = '';
-                    gagal = e.message; // mis. sudah diproses admin lain / fasilitas sudah terpakai
+                    this.statusError = 'Gagal memperbarui status peminjaman. Periksa koneksi lalu coba lagi.';
                 } finally {
                     this.acting = false;
-                    this.selected = null;
                 }
 
-                // Selalu muat ulang agar status di layar sesuai data terbaru; pesan gagal ditampilkan setelahnya
-                // (load() mengosongkan pesan error lama)
+                // Selalu muat ulang agar status di kalender sesuai data terbaru
                 await this.load();
-                if (gagal) this.error = gagal;
             },
 
             // Form buat / edit tersimpan lewat API: tampilkan pesan & muat ulang data periode ini

@@ -1,188 +1,200 @@
-@extends('layouts.customer')
-@section('title', 'Sistem Pengajuan Barang')
+@extends(auth()->user()->hasRole('admin') ? 'layouts.admin' : 'layouts.customer')
+@section('title', 'Pengajuan Saya')
 
 @section('content')
-<div class="space-y-6" x-data="{ activeTab: '{{ request('tab', 'keranjang') }}' }">
+@include('pengajuan.partials.list-script')
+
+{{-- Daftar dimuat lewat JSON (pengajuan.data, lingkup saya): ganti halaman / filter / batalkan tidak me-reload halaman --}}
+<div class="space-y-6" x-data="pengajuanList(@js($initial))" @pengajuan-diperbarui.window="load()">
     <div>
-        <h2 class="text-xl font-semibold tracking-tight text-gray-900">Sistem Pengajuan Barang Kelompok</h2>
-        <p class="text-sm text-gray-500 mt-1">Kelola barang yang akan diajukan secara kolektif.</p>
+        <h2 class="text-xl font-semibold tracking-tight text-gray-900">Pengajuan Saya</h2>
+        <p class="text-sm text-gray-500 mt-1">Pantau status pengajuan persediaan yang sudah dikirim.</p>
     </div>
 
-    <div class="border-b border-gray-200">
-        <nav class="flex space-x-4" aria-label="Tabs">
-            <button 
-                @click="activeTab = 'keranjang'"
-                :class="activeTab === 'keranjang' ? 'border-bps-blue text-bps-blue' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 cursor-pointer">
-                🛒 Keranjang Saya 
-                <span :class="activeTab === 'keranjang' ? 'bg-bps-blue text-white' : 'bg-gray-100 text-gray-900'" class="ml-1 px-2.5 py-0.5 rounded-full text-xs font-bold">
-                    {{ count($keranjang) }}
-                </span>
-            </button>
-            <button 
-                @click="activeTab = 'riwayat'"
-                :class="activeTab === 'riwayat' ? 'border-bps-blue text-bps-blue' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 cursor-pointer">
-                📜 Riwayat Pengajuan Kelompok
-            </button>
-        </nav>
-    </div>
+    @include('pengajuan.partials.filter', ['placeholder' => 'Cari kode pengajuan atau persediaan...'])
 
-    <div>
-        {{-- TAB 1: KERANJANG --}}
-        <div x-show="activeTab === 'keranjang'" class="space-y-4">
-            @if(count($keranjang) > 0)
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-gray-50 border-b border-gray-100">
-                                    <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Nama Barang</th>
-                                    <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Satuan</th>
-                                    <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-40">Jumlah Diminta</th>
-                                    <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                @foreach($keranjang as $id => $item)
-                                    <tr class="hover:bg-gray-50/50 transition">
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="font-bold text-gray-900">{{ $item['nama_barang'] }}</div>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                                {{ $item['satuan'] }}
-                                            </span>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <form action="{{ route('customer.keranjang.update', $id) }}" method="POST" id="form-update-{{ $id }}" onsubmit="return false;">
-                                                @csrf
-                                                @method('PATCH')
-                                                <input type="number" name="jumlah" value="{{ $item['jumlah'] }}" min="1" 
-                                                    onchange="document.getElementById('form-update-{{ $id }}').submit()"
-                                                    onkeydown="if(event.key === 'Enter') { this.blur(); return false; }"
-                                                    class="w-20 px-3 py-1.5 rounded-xl border border-gray-200 text-center text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue/30 focus:border-bps-blue">
-                                            </form>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <form action="{{ route('customer.keranjang.delete', $id) }}" method="POST" class="inline-block">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="text-red-600 hover:text-red-900 font-semibold cursor-pointer flex items-center gap-1 ml-auto">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                                    </svg>
-                                                    Hapus
-                                                </button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="px-6 py-4 bg-gray-50 flex justify-end border-t border-gray-100">
-                        <form action="{{ route('customer.keranjang.checkout') }}" method="POST">
-                            @csrf
-                            <button type="submit" class="inline-flex items-center gap-2 bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white px-6 py-3 rounded-xl text-sm font-semibold transition shadow-[0_8px_24px_-12px_rgba(0,61,130,0.8)] cursor-pointer">
-                                🚀 Kirim Pengajuan Kelompok Sekarang
+    <div class="space-y-4 transition-opacity" :class="loading && items.length && 'opacity-50'">
+        {{-- Satu kartu per pengajuan (tanpa tabel, agar nyaman di layar ponsel) --}}
+        <template x-for="item in items" :key="item.id">
+            <article class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <header class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-4 sm:px-6 py-4 border-b border-gray-100">
+                    <div class="min-w-0">
+                        <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Kode Pengajuan</p>
+                        <div class="mt-0.5 flex items-center gap-2" x-data="{ tersalin: false }">
+                            <p class="font-mono text-lg sm:text-2xl font-bold tracking-tight text-gray-900 break-all" x-text="item.code"></p>
+                            <button type="button" title="Salin kode" :aria-label="`Salin kode ${item.code}`"
+                                @click="salinKode(item.code).then(ok => { tersalin = ok; setTimeout(() => tersalin = false, 1500) })"
+                                class="shrink-0 inline-flex items-center gap-1 rounded-lg p-1.5 text-gray-400 hover:text-bps-blue hover:bg-bps-blue/10 transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-bps-blue/40">
+                                <svg x-show="!tersalin" class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                                <svg x-show="tersalin" x-cloak class="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span x-show="tersalin" x-cloak role="status" class="text-xs font-semibold text-emerald-600">Tersalin</span>
                             </button>
-                        </form>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-500" x-text="`${item.dibuat} · ${item.items.length} item`"></p>
                     </div>
-                </div>
-            @else
-                <div class="text-center py-16 bg-white border border-gray-100 rounded-2xl shadow-sm space-y-4">
-                    <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto text-gray-400">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                    <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-bold" :class="warnaStatus[item.status]" x-text="item.status_label"></span>
+                </header>
+
+                <ul class="divide-y divide-gray-50 px-4 sm:px-6">
+                    <template x-for="(detail, d) in item.items" :key="d">
+                        <li class="flex items-center justify-between gap-3 py-2.5 text-sm">
+                            <span class="min-w-0">
+                                <span class="font-bold text-gray-900" x-text="'x' + detail.jumlah"></span>
+                                <span class="text-gray-700" x-text="detail.nama_barang"></span>
+                            </span>
+                            <span class="shrink-0 text-[11px] text-gray-400" x-text="detail.satuan"></span>
+                        </li>
+                    </template>
+                </ul>
+
+                <footer class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-6 py-3 bg-gray-50/70 border-t border-gray-100">
+                    <p class="text-xs text-gray-500 min-w-0">
+                        <span class="font-semibold text-gray-600">Catatan admin:</span>
+                        <span class="italic" x-text="item.alasan || '-'"></span>
+                    </p>
+
+                    {{-- Cetak PDF (disetujui), batalkan (pending milik sendiri), atau keterangan --}}
+                    <a x-show="item.pdf_url" :href="item.pdf_url" target="_blank"
+                        class="inline-flex shrink-0 items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 text-xs font-bold transition">
+                        <svg class="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                         </svg>
-                    </div>
-                    <h4 class="text-base font-bold text-gray-500">Keranjang belanjamu kosong</h4>
-                    <a href="{{ route('customer.katalog.index') }}" class="inline-flex items-center justify-center bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white px-4 py-2 rounded-xl text-sm font-semibold transition cursor-pointer shadow-[0_8px_24px_-12px_rgba(0,61,130,0.8)]">
-                        Lihat Katalog Barang
+                        Cetak PDF
                     </a>
-                </div>
-            @endif
+                    <button type="button" x-show="item.batal_url" @click="bukaBatal(item)"
+                        class="inline-flex shrink-0 items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 text-xs font-bold transition cursor-pointer">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Batalkan Pengajuan
+                    </button>
+                    <span x-show="!item.pdf_url && !item.batal_url" class="text-xs text-gray-400 italic"
+                        x-text="item.status === 'dibatalkan' ? 'Dibatalkan' : 'Belum Di-ACC'"></span>
+                </footer>
+            </article>
+        </template>
+
+        <div x-show="loading && !items.length" class="text-center py-16 text-sm text-gray-400">Memuat data pengajuan...</div>
+        <div x-show="!loading && !error && !items.length" x-cloak class="text-center py-16 bg-white border border-gray-100 rounded-2xl shadow-sm space-y-4">
+            <h4 class="text-base font-bold text-gray-500"
+                x-text="filters.q || filters.status ? 'Tidak ada pengajuan yang cocok dengan filter' : 'Belum ada riwayat pengajuan'"></h4>
+        </div>
+        <div x-show="error" x-cloak class="text-center py-12 text-sm text-red-600">
+            <span x-text="error"></span>
+            <button type="button" @click="load()" class="ml-2 font-semibold underline cursor-pointer">Coba lagi</button>
+        </div>
+    </div>
+
+    @include('barang.partials.pagination')
+</div>
+
+{{-- Dialog konfirmasi batalkan pengajuan --}}
+<div id="modalBatal" data-dialog class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+    role="dialog" aria-modal="true" aria-labelledby="judulBatal">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+        <div class="flex items-start gap-3 mb-4">
+            <div class="w-10 h-10 shrink-0 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+                </svg>
+            </div>
+            <div class="min-w-0">
+                <h3 id="judulBatal" class="text-lg font-bold text-gray-900">Batalkan Pengajuan?</h3>
+                <p class="text-xs text-gray-500 mt-1">
+                    Pengajuan <span id="batalKode" class="font-mono font-semibold text-gray-700"></span> akan dibatalkan dan tidak bisa diproses admin lagi.
+                    Stok yang dipesan untuk pengajuan ini dilepas.
+                </p>
+            </div>
+            <button type="button" onclick="tutupBatal()" aria-label="Tutup" title="Tutup"
+                class="ml-auto shrink-0 -mt-1 -mr-1 p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-pointer">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
         </div>
 
-        {{-- TAB 2: RIWAYAT PENGAJUAN --}}
-<div x-show="activeTab === 'riwayat'" class="space-y-4" style="display: none;">
-    @if(count($riwayat) > 0)
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-gray-50 border-b border-gray-100">
-                            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-36">Tanggal</th>
-                            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Detail Item Barang</th>
-                            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-32">Status Induk</th>
-                            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-40">Catatan Admin</th>
-                            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center w-36">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        @foreach($riwayat as $item)
-                            <tr class="hover:bg-gray-50/50 transition align-top">
-                                <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                                    {{ $item->created_at->format('d/m/Y H:i') }}
-                                </td>
-                                <td class="px-6 py-4 text-sm text-gray-700">
-                                    <div class="space-y-2">
-                                        @foreach($item->details as $detail)
-                                            <div class="flex items-center justify-between border-b border-gray-50 pb-1.5 last:border-0 last:pb-0">
-                                                <div class="flex items-center gap-2">
-                                                    <span class="font-bold text-gray-900">x{{ $detail->jumlah_diminta }}</span>
-                                                    <span class="text-gray-700">{{ $detail->barang->nama_barang ?? 'Barang Dihapus' }}</span>
-                                                </div>
-                                                <span class="px-2 py-0.5 text-[11px] font-bold rounded-md
-                                                    {{ $detail->status_item === 'Disetujui' ? 'bg-green-50 text-green-700 border border-green-100' : ($detail->status_item === 'Ditolak' ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-gray-50 text-gray-600') }}">
-                                                    {{ $detail->status_item ?? 'Pending' }}
-                                                </span>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    @php
-                                        $colors = [
-                                            'pending' => 'bg-yellow-100 text-yellow-800',
-                                            'disetujui' => 'bg-green-100 text-green-800',
-                                            'ditolak' => 'bg-red-100 text-red-800',
-                                        ];
-                                    @endphp
-                                    <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-bold {{ $colors[$item->status] ?? '' }}">
-                                        {{ ucfirst($item->status) }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-sm text-gray-500 italic">
-                                    {{ $item->alasan ?? '-' }}
-                                </td>
-                                
-                                {{-- KOLOM AKSI CETAK PDF DENGAN VALIDASI STATUS --}}
-                                <td class="px-6 py-4 text-center whitespace-nowrap">
-                                    @if($item->status === 'disetujui')
-                                        <a href="{{ route('customer.pengajuan.cetak-pdf', $item->id) }}" 
-                                           target="_blank" 
-                                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 text-xs font-bold transition shadow-xs">
-                                            <svg class="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                                            </svg>
-                                            Cetak PDF
-                                        </a>
-                                    @else
-                                        <span class="text-xs text-gray-400 italic">Belum Di-ACC</span>
-                                    @endif
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
+        <p id="batalGalat" role="alert" class="hidden mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700"></p>
+
+        <div class="flex gap-3">
+            <button type="button" onclick="tutupBatal()"
+                class="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 cursor-pointer">Kembali</button>
+            <button type="button" id="tombolBatal" onclick="kirimBatal()"
+                class="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 text-white text-sm font-semibold transition cursor-pointer disabled:opacity-60 disabled:cursor-wait">Ya, Batalkan</button>
         </div>
-    @else
-        <div class="text-center py-16 bg-white border border-gray-100 rounded-2xl shadow-sm space-y-4">
-            <h4 class="text-base font-bold text-gray-500">Belum ada riwayat pengajuan</h4>
-        </div>
-    @endif
+    </div>
 </div>
+
+<div id="pesanPengajuan" aria-live="polite" class="fixed bottom-4 right-4 left-4 sm:left-auto sm:w-96 z-[60] space-y-2"></div>
+
+<script>
+    // ─── Batalkan pengajuan (fetch, tanpa reload) ───
+    let pengajuanDibatalkan = null; // baris pengajuan yang sedang dibatalkan
+
+    function bukaBatal(item) {
+        pengajuanDibatalkan = item;
+        document.getElementById('batalKode').textContent = item.code;
+        document.getElementById('batalGalat').classList.add('hidden');
+        document.getElementById('tombolBatal').disabled = false;
+        document.getElementById('modalBatal').classList.remove('hidden');
+    }
+
+    function tutupBatal() {
+        document.getElementById('modalBatal').classList.add('hidden');
+    }
+
+    async function kirimBatal() {
+        const tombol = document.getElementById('tombolBatal');
+        const galat = document.getElementById('batalGalat');
+        tombol.disabled = true;
+        galat.classList.add('hidden');
+
+        try {
+            const response = await fetch(pengajuanDibatalkan.batal_url, {
+                method: 'PATCH',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': @js(csrf_token()) },
+            });
+            const json = await response.json().catch(() => ({}));
+
+            // Berhasil maupun gagal (mis. sudah diproses admin), daftar dimuat ulang agar statusnya sesuai
+            muatUlangPengajuan();
+
+            if (!response.ok) {
+                galat.textContent = json.message ?? 'Gagal membatalkan pengajuan. Silakan coba lagi.';
+                galat.classList.remove('hidden');
+                return;
+            }
+
+            tutupBatal();
+            tampilkanPesanPengajuan(json.message);
+        } catch (e) {
+            galat.textContent = 'Gagal membatalkan pengajuan. Periksa koneksi lalu coba lagi.';
+            galat.classList.remove('hidden');
+        } finally {
+            tombol.disabled = false;
+        }
+    }
+
+    // Salin kode pengajuan. Clipboard API hanya ada di HTTPS/localhost; di HTTP (mis. jaringan kantor) pakai cara lama.
+    async function salinKode(teks) {
+        try {
+            await navigator.clipboard.writeText(teks);
+            return true;
+        } catch (e) {
+            const el = document.createElement('textarea');
+            el.value = teks;
+            el.setAttribute('readonly', '');
+            el.style.position = 'fixed';
+            el.style.opacity = '0';
+            document.body.appendChild(el);
+            el.select();
+            const ok = document.execCommand('copy');
+            el.remove();
+            return ok;
+        }
+    }
+</script>
 @endsection
