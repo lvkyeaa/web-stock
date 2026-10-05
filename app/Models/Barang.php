@@ -48,6 +48,22 @@ class Barang extends Model
             ->selectRaw('coalesce(sum(order_items.jumlah), 0)'));
     }
 
+    // ─── Popularitas ───
+    // Dihitung dari pengajuan yang DISETUJUI saja (jumlah pengajuan, bukan jumlah unit). Satu pengajuan berisi paling
+    // banyak satu baris per barang (keranjang unik per barang), jadi jumlah baris order_items = jumlah pengajuan.
+    public const POPULER_HARI = 90; // jendela waktu "populer saat ini"
+
+    // Menambahkan atribut `diminta_90_hari` (jendela POPULER_HARI) dan `diminta_total` (sepanjang waktu)
+    public function scopeWithPopularitas(Builder $query): void
+    {
+        $query->withCount([
+            'orderItems as diminta_90_hari' => fn ($q) => $q->whereHas('order', fn ($o) => $o
+                ->where('status', 'disetujui')
+                ->where('created_at', '>=', now()->subDays(self::POPULER_HARI))),
+            'orderItems as diminta_total' => fn ($q) => $q->whereRelation('order', 'status', 'disetujui'),
+        ]);
+    }
+
     // Butuh withDipesan() pada query yang memuat barang ini
     public function getTersediaAttribute(): int
     {

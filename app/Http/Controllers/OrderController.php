@@ -15,12 +15,13 @@ use Illuminate\Support\Facades\DB;
 // Aksi khusus satu peran dibatasi di route; hak akses per pengajuan (milik sendiri) dicek di sini.
 class OrderController extends Controller
 {
+    public const STATUS = ['pending' => 'Pending', 'disetujui' => 'Disetujui', 'ditolak' => 'Ditolak', 'dibatalkan' => 'Dibatalkan'];
+
+    // Admin: halaman persetujuan (semua pengajuan); customer: Pengajuan Saya
     public function index(Request $request)
     {
         if ($request->user()->hasRole('admin')) {
-            $transaksi = Order::with(['user', 'items'])->latest()->paginate(10);
-
-            return view('admin.transaksi.index', compact('transaksi'));
+            return view('admin.transaksi.index', ['initial' => $this->kondisiAwal($request, 'semua')]);
         }
 
         return $this->saya($request);
@@ -29,9 +30,73 @@ class OrderController extends Controller
     // Pengajuan milik user yang login (customer: halaman pengajuan utamanya; admin: pengajuan yang ia buat sendiri)
     public function saya(Request $request)
     {
-        $riwayat = $request->user()->orders()->with('items')->latest()->get();
+        return view('customer.pengajuan.index', ['initial' => $this->kondisiAwal($request, 'saya')]);
+    }
 
-        return view('customer.pengajuan.index', compact('riwayat'));
+    // Hanya kerangka halaman; daftar diambil lewat data() (JSON). Kondisi awal dari query string (tetap saat reload)
+    private function kondisiAwal(Request $request, string $lingkup): array
+    {
+        return [
+            'status'  => array_key_exists((string) $request->status, self::STATUS) ? $request->status : '',
+            'q'       => mb_substr(trim((string) $request->q), 0, 100),
+            'page'    => max(1, (int) $request->page),
+            'lingkup' => $lingkup, // saya = pengajuan sendiri, semua = semua pengajuan (khusus admin)
+            'dataUrl' => route('pengajuan.data'),
+            'csrf'    => csrf_token(),
+        ];
+    }
+
+    // API JSON: daftar pengajuan per halaman, dengan filter status & pencarian, beserta aksi yang boleh dilakukan
+    public function data(Request $request)
+    {
+        $request->validate([
+            'lingkup' => 'nullable|in:saya,semua',
+            'status'  => 'nullable|in:' . implode(',', array_keys(self::STATUS)),
+            'q'       => 'nullable|string|max:100',
+            'page'    => 'nullable|integer|min:1',
+        ]);
+
+        $user = $request->user();
+        $isAdmin = $user->hasRole('admin');
+        $semua = $request->lingkup === 'semua';
+        abort_if($semua && ! $isAdmin, 403);
+
+        $orders = Order::with(['user:id,username,name', 'items'])
+            ->when(! $semua, fn ($query) => $query->where('user_id', $user->id))
+            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->status))
+            // Cari kode pengajuan atau nama persediaan; di daftar semua pengajuan juga nama/username pemohon
+            ->when($request->filled('q'), function ($query) use ($request, $semua) {
+                $kata = '%' . trim($request->q) . '%';
+                $query->where(fn ($w) => $w->where('code', 'like', $kata)
+                    ->orWhereHas('items', fn ($item) => $item->where('nama_barang', 'like', $kata))
+                    ->when($semua, fn ($w) => $w->orWhereHas('user', fn ($u) => $u->where('username', 'like', $kata)->orWhere('name', 'like', $kata))));
+            })
+            ->latest()
+            ->paginate(10);
+
+        return response()->json([
+            'data' => $orders->getCollection()->map(fn (Order $order) => [
+                'id'           => $order->id,
+                'code'         => $order->code,
+                'status'       => $order->status,
+                'status_label' => self::STATUS[$order->status] ?? $order->status,
+                'alasan'       => $order->alasan,
+                'dibuat'       => $order->created_at->tanggalJam(),
+                'pemohon'      => $order->user->username ?? $order->user->name ?? '-',
+                'items'        => $order->items->map->only(['nama_barang', 'satuan', 'jumlah'])->values(),
+                // Aksi yang boleh dilakukan pada baris ini (null = tidak ada tombolnya)
+                'pdf_url'      => $order->status === 'disetujui' ? route('pengajuan.cetak-pdf', $order) : null,
+                'batal_url'    => $order->status === 'pending' && $order->user_id === $user->id ? route('pengajuan.batal', $order) : null,
+                'status_url'   => $order->status === 'pending' && $isAdmin && $semua ? route('pengajuan.update-status', $order) : null,
+            ]),
+            'meta' => [
+                'current_page' => $orders->currentPage(),
+                'last_page'    => $orders->lastPage(),
+                'from'         => $orders->firstItem(),
+                'to'           => $orders->lastItem(),
+                'total'        => $orders->total(),
+            ],
+        ]);
     }
 
     // Checkout: isi keranjang menjadi satu pengajuan (order).
@@ -173,13 +238,52 @@ class OrderController extends Controller
             return null;
         });
 
-        if ($error) {
-            return back()->with('error', $error);
-        }
-
-        return back()->with('success', $request->status === 'disetujui'
+        $pesan = $error ?? ($request->status === 'disetujui'
             ? 'Permintaan persediaan berhasil disetujui dan stok telah dipotong.'
             : 'Permintaan persediaan telah ditolak.');
+
+        // Dari halaman persetujuan (fetch) cukup JSON tanpa reload; form biasa tetap redirect dengan pesan
+        if ($request->expectsJson()) {
+            return response()->json(['message' => $pesan], $error ? 422 : 200);
+        }
+
+        return back()->with($error ? 'error' : 'success', $pesan);
+    }
+
+    // Pemohon membatalkan pengajuannya sendiri selama masih pending (dipanggil lewat fetch, respons JSON).
+    // Status jadi 'dibatalkan' (riwayat tetap ada); stok yang dipesan otomatis lepas karena reservasi hanya menghitung pending.
+    public function batal(Request $request, Order $order)
+    {
+        // 404 agar keberadaan pengajuan milik user lain tidak terungkap
+        abort_unless($order->user_id === $request->user()->id, 404);
+
+        $galat = DB::transaction(function () use ($request, $order) {
+            // Kunci baris pengajuan: jika admin menyetujui/menolak bersamaan, hanya salah satu yang berhasil
+            $order = Order::whereKey($order->id)->lockForUpdate()->first();
+
+            if ($order->status !== 'pending') {
+                return 'Pengajuan ini sudah diproses admin sehingga tidak bisa dibatalkan.';
+            }
+
+            Riwayat::create([
+                'order_id'          => $order->id,
+                'actor_id'          => $request->user()->id,
+                'status_sebelumnya' => 'pending',
+                'status_sesudah'    => 'dibatalkan',
+                'catatan'           => 'Dibatalkan oleh pemohon.',
+            ]);
+
+            $order->update(['status' => 'dibatalkan']);
+
+            return null;
+        });
+
+        if ($galat) {
+            // Status terbaru ikut dikirim agar kartu di halaman langsung sesuai
+            return response()->json(['message' => $galat, 'status' => $order->fresh()->status], 422);
+        }
+
+        return response()->json(['message' => "Pengajuan {$order->code} dibatalkan.", 'status' => 'dibatalkan']);
     }
 
     public function cetakPdf(Request $request, Order $order)

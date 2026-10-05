@@ -13,11 +13,14 @@ use Illuminate\Support\Str;
 // Controller barang & stok untuk role admin (kelola) maupun customer (katalog). Aksi ubah data khusus admin (dibatasi di route).
 class BarangController extends Controller
 {
+    // Pilihan urutan daftar: terbaru ditambahkan, paling sering diminta (90 hari / sepanjang waktu), atau nama A–Z
+    private const URUTAN = ['terbaru', 'populer', 'populer_total', 'nama'];
+
     // Admin: halaman kelola barang (tabel); customer: katalog
     public function index(Request $request)
     {
         if ($request->user()->hasRole('admin')) {
-            return view('admin.barang.index', ['initial' => $this->kondisiAwal($request, 10)]);
+            return view('admin.barang.index', ['initial' => $this->kondisiAwal($request, 10, 'populer')]);
         }
 
         return $this->katalog($request);
@@ -26,17 +29,19 @@ class BarangController extends Controller
     // Katalog (kartu barang, tambah ke keranjang) untuk admin maupun customer
     public function katalog(Request $request)
     {
-        return view('customer.katalog.index', ['initial' => $this->kondisiAwal($request, 12)]);
+        return view('customer.katalog.index', ['initial' => $this->kondisiAwal($request, 12, 'populer')]);
     }
 
     // Hanya kerangka halaman; daftar barang diambil lewat data() (JSON)
     // Kondisi awal dari query string (agar posisi tetap saat reload / kembali setelah submit form)
-    private function kondisiAwal(Request $request, int $perPage): array
+    private function kondisiAwal(Request $request, int $perPage, string $urutBawaan): array
     {
         return [
             'search'    => mb_substr(trim((string) $request->search), 0, 100),
             'stokHabis' => $request->boolean('stok_habis'),
             'page'      => max(1, (int) $request->page),
+            'urut'      => in_array($request->urut, self::URUTAN, true) ? $request->urut : $urutBawaan,
+            'urutBawaan' => $urutBawaan, // tidak ditulis di URL jika sama dengan bawaan
             'perPage'   => $perPage, // tabel admin 10 baris, grid katalog 12 kartu (pas 3/4 kolom)
             'dataUrl'   => route('barang.data'),
         ];
@@ -50,14 +55,19 @@ class BarangController extends Controller
             'stok_habis' => 'nullable|boolean',
             'page'       => 'nullable|integer|min:1',
             'per_page'   => 'nullable|integer|in:10,12',
+            'urut'       => 'nullable|in:' . implode(',', self::URUTAN),
         ]);
 
         $barang = Barang::withDipesan()
+            ->withPopularitas()
             ->withCount('orderItems')
             ->when($request->filled('search'), fn ($query) => $query->where('nama_barang', 'like', '%' . $request->search . '%'))
             // Barang tanpa stok tersedia (habis, atau semuanya sudah diajukan) disembunyikan kecuali filter "tampilkan stok habis" aktif
             ->when(! $request->boolean('stok_habis'), fn ($query) => $query->whereTersedia())
-            ->latest()
+            ->when($request->urut === 'populer', fn ($query) => $query->orderByDesc('diminta_90_hari')->orderByDesc('diminta_total')->orderBy('nama_barang'))
+            ->when($request->urut === 'populer_total', fn ($query) => $query->orderByDesc('diminta_total')->orderByDesc('diminta_90_hari')->orderBy('nama_barang'))
+            ->when($request->urut === 'nama', fn ($query) => $query->orderBy('nama_barang'))
+            ->when(! in_array($request->urut, ['populer', 'populer_total', 'nama'], true), fn ($query) => $query->latest())
             ->paginate($request->integer('per_page') ?: ($request->user()->hasRole('admin') ? 10 : 12));
 
         return response()->json([
@@ -72,6 +82,9 @@ class BarangController extends Controller
                 'foto_url'    => $item->foto_url,
                 // Persediaan yang pernah diajukan (status apa pun) tidak bisa dihapus, lihat destroy()
                 'bisa_dihapus' => $item->order_items_count === 0,
+                // Popularitas: jumlah pengajuan yang disetujui
+                'diminta_90_hari' => $item->diminta_90_hari,
+                'diminta_total'   => $item->diminta_total,
             ]),
             'meta' => [
                 'current_page' => $barang->currentPage(),

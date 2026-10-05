@@ -229,6 +229,8 @@
             @yield('content')
         </main>
     </div>
+
+    @include('layouts.partials.dialog-script')
 </body>
 
 </html>

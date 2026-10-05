@@ -4,6 +4,15 @@
 @section('content')
     @include('barang.partials.list-script')
 
+    <script>
+        // Ringkas jumlah ala marketplace: 12 → "12", 257 → "250+", 1340 → "1rb+"
+        function ringkasJumlah(n) {
+            if (n < 100) return String(n);
+            if (n < 1000) return `${Math.floor(n / 50) * 50}+`;
+            return `${Math.floor(n / 1000)}rb+`;
+        }
+    </script>
+
     {{-- Daftar dimuat lewat JSON (barang.data): ganti halaman / filter tidak me-reload halaman --}}
     <div class="space-y-6" x-data="barangList(@js($initial))">
         {{-- HEADER BARIS UTAMA --}}
@@ -66,6 +75,17 @@
                 <button type="submit" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-bps-blue to-bps-blue-dark text-white text-sm font-semibold hover:from-bps-blue-dark hover:to-bps-blue transition cursor-pointer shadow-[0_8px_24px_-12px_rgba(0,61,130,0.8)]">
                     Cari
                 </button>
+
+                {{-- Urutan: terpopuler = paling sering diminta (pengajuan disetujui) dalam 90 hari terakhir --}}
+                <label class="flex items-center gap-2 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                    Urutkan
+                    <select x-model="filters.urut" @change="search()"
+                        class="py-2.5 pl-3 pr-8 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-bps-blue/30 focus:border-bps-blue cursor-pointer">
+                        <option value="populer">Terpopuler (90 hari terakhir)</option>
+                        <option value="terbaru">Terbaru</option>
+                        <option value="nama">Nama A–Z</option>
+                    </select>
+                </label>
             </form>
         </div>
 
@@ -93,8 +113,22 @@
                     <div class="flex flex-1 flex-col p-3 sm:p-4">
                         <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 font-mono truncate"
                             x-text="item.stock_id || 'Tanpa kode'"></p>
-                        <h3 class="mt-1 text-sm font-semibold leading-snug tracking-tight text-slate-900 line-clamp-2 min-h-[2.5rem]"
+                        <h3 class="mt-1 text-sm font-semibold leading-snug tracking-tight text-slate-900 line-clamp-2 min-h-[2.5rem] sm:line-clamp-1 sm:min-h-0"
                             :title="item.nama_barang" x-text="item.nama_barang"></h3>
+                        {{-- Jumlah pengajuan disetujui 90 hari terakhir (jendela disebut di pilihan urutan), gaya "250+ terjual".
+                             Baris tetap ada agar tinggi kartu sama --}}
+                        <p class="mt-1.5 h-5 flex items-center gap-1 text-xs text-slate-500 truncate"
+                            :title="item.diminta_90_hari > 0 ? `Diminta ${item.diminta_90_hari} kali dalam 90 hari terakhir` : ''">
+                            <template x-if="item.diminta_90_hari > 0">
+                                <span class="inline-flex items-center gap-1">
+                                    <svg class="w-4 h-4 shrink-0 text-bps-orange" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="font-bold text-slate-800" x-text="ringkasJumlah(item.diminta_90_hari) + '×'"></span>
+                                    <span class="font-medium text-slate-700">diminta</span>
+                                </span>
+                            </template>
+                        </p>
 
                         {{-- STOK & TOMBOL TAMBAH --}}
                         <div class="mt-3 sm:mt-4 pt-3 flex flex-col items-stretch gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3 border-t border-slate-100">

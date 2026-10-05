@@ -88,6 +88,7 @@ class BarangTest extends TestCase
                 'data' => [[
                     'id' => $barang->id, 'stock_id' => 'ATK-001', 'nama_barang' => 'Stapler',
                     'stock' => 5, 'dipesan' => 0, 'tersedia' => 5, 'satuan' => 'BUAH', 'foto_url' => $barang->foto_url, 'bisa_dihapus' => true,
+                    'diminta_90_hari' => 0, 'diminta_total' => 0,
                 ]],
                 'meta' => ['current_page' => 1, 'last_page' => 1, 'from' => 1, 'to' => 1, 'total' => 1],
             ]);

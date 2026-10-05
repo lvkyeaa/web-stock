@@ -38,8 +38,8 @@ class FormatTanggalTest extends TestCase
         $admin = User::forceCreate(['name' => 'adm', 'username' => 'adm', 'email' => 'adm@example.com', 'password' => 'x']);
         $admin->assignRole('admin');
 
-        $this->actingAs($customer)->get(route('pengajuan.index'))->assertSee('1 Januari 2026, 10:05');
-        $this->actingAs($admin)->get(route('pengajuan.index'))->assertSee('1 Januari 2026, 10:05');
+        $this->actingAs($customer)->getJson(route('pengajuan.data', ['lingkup' => 'saya']))->assertJsonPath('data.0.dibuat', '1 Januari 2026, 10:05');
+        $this->actingAs($admin)->getJson(route('pengajuan.data', ['lingkup' => 'semua']))->assertJsonPath('data.0.dibuat', '1 Januari 2026, 10:05');
         $this->actingAs($admin)->get(route('admin.manajemen-user.index'))->assertSee('1 Januari 2026');
         $this->actingAs($admin)->get(route('admin.dashboard'))->assertSee('Kamis, 1 Januari 2026');
     }

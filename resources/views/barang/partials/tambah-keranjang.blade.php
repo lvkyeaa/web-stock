@@ -1,7 +1,7 @@
 {{-- Modal "Masukkan ke Keranjang" + notifikasi, dipakai halaman katalog (admin & customer).
      Buka dengan openAjukanModal(id, nama, tersedia, satuan, fotoUrl). --}}
 {{-- MODAL MASUKKAN KERANJANG --}}
-<div id="modalAjukan" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+<div id="modalAjukan" data-dialog class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
         <div class="flex items-center justify-between mb-5">
             <h3 class="text-lg font-bold text-gray-900">Masukkan ke Keranjang</h3>

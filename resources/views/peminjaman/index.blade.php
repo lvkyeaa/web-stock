@@ -443,6 +443,12 @@
                     <h3 class="text-base font-bold text-bps-blue-dark" x-text="confirmBox.title"></h3>
                     <p class="text-sm text-gray-600 mt-1 break-words" x-text="confirmBox.message"></p>
                 </div>
+                <button type="button" @click="answer(false)" aria-label="Tutup" title="Tutup"
+                    class="ml-auto shrink-0 -mt-1 -mr-1 p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-pointer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
             <div class="flex gap-2 justify-end">
                 <button type="button" @click="answer(false)"

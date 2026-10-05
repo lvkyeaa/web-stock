@@ -32,11 +32,17 @@ class KeranjangPengajuanTest extends TestCase
     private function orderUntuk(User $user, Barang $barang, int $jumlah): Order
     {
         $user->cartItems()->create(['barang_id' => $barang->id, 'jumlah' => $jumlah]);
-        $this->actingAs($user)->postJson(route('pengajuan.store'))->assertOk();
+        $kode = $this->actingAs($user)->postJson(route('pengajuan.store'))->assertOk()->json('code');
         // Di browser pesan sukses (flash) langsung terpakai di halaman Pengajuan Saya; jangan bocor ke request uji berikutnya
         $this->flushSession();
 
-        return $user->orders()->latest()->firstOrFail();
+        // Dicari lewat kode (bukan latest()): dua pengajuan dalam detik yang sama punya created_at sama
+        return Order::where('code', $kode)->firstOrFail();
+    }
+
+    private function dataPengajuan(User $user, array $params = []): \Illuminate\Support\Collection
+    {
+        return collect($this->actingAs($user)->getJson(route('pengajuan.data', $params))->assertOk()->json('data'));
     }
 
     // ─── Keranjang ───
@@ -184,8 +190,9 @@ class KeranjangPengajuanTest extends TestCase
         $this->actingAs($user)->get(route('keranjang.index'))
             ->assertOk()->assertSee('Lakban')->assertViewHas('items', fn ($items) => collect($items)->pluck('nama_barang')->all() === ['Lakban'])->assertDontSee($order->code);
 
-        $this->actingAs($user)->get(route('pengajuan.index'))
-            ->assertOk()->assertSee($order->code)->assertDontSee('Lakban');
+        $daftar = $this->dataPengajuan($user, ['lingkup' => 'saya']);
+        $this->assertSame([$order->code], $daftar->pluck('code')->all());
+        $this->assertSame(['Spidol', 'Map Plastik'], collect($daftar[0]['items'])->pluck('nama_barang')->sort()->reverse()->values()->all());
     }
 
     // ─── Checkout ───
@@ -260,10 +267,12 @@ class KeranjangPengajuanTest extends TestCase
         $user = $this->user();
         $order = $this->orderUntuk($user, $this->barang(nama: 'Map Plastik'), 2);
 
-        $this->actingAs($user)->get(route('pengajuan.index'))
-            ->assertOk()->assertSee($order->code)->assertSee('Map Plastik');
-    }
+        $this->actingAs($user)->get(route('pengajuan.index'))->assertOk()->assertViewHas('initial.lingkup', 'saya');
 
+        $item = $this->dataPengajuan($user, ['lingkup' => 'saya'])->sole();
+        $this->assertSame([$order->code, 'pending', 'Pending', $user->username], [$item['code'], $item['status'], $item['status_label'], $item['pemohon']]);
+        $this->assertSame([['nama_barang' => 'Map Plastik', 'satuan' => 'BUAH', 'jumlah' => 2]], $item['items']);
+    }
     // ─── Reservasi stok oleh pengajuan pending ───
 
     public function test_stok_1_dua_user_hanya_yang_pertama_checkout_yang_berhasil(): void
@@ -428,9 +437,12 @@ class KeranjangPengajuanTest extends TestCase
         $order = $this->orderUntuk($this->user(), $this->barang(nama: 'Amplop'), 1);
         $admin = $this->user('admin');
 
-        $this->actingAs($admin)->get(route('pengajuan.index'))->assertOk()->assertSee($order->code)->assertSee('Amplop');
+        $this->actingAs($admin)->get(route('pengajuan.index'))->assertOk()->assertViewIs('admin.transaksi.index');
+        $item = $this->dataPengajuan($admin, ['lingkup' => 'semua'])->sole();
+        $this->assertSame([$order->code, 'Amplop', null], [$item['code'], $item['items'][0]['nama_barang'], $item['pdf_url']]);
 
         $order->update(['status' => 'disetujui']);
+        $this->assertSame(route('pengajuan.cetak-pdf', $order), $this->dataPengajuan($admin, ['lingkup' => 'semua'])->sole()['pdf_url']);
         $this->actingAs($admin)->get(route('pengajuan.cetak-pdf', $order))->assertOk();
 
         $pdf = view('pdf.bukti-pengajuan', ['pengajuan' => $order->load('items', 'user'), 'nomorSurat' => $order->nomorSurat()])->render();
@@ -441,16 +453,42 @@ class KeranjangPengajuanTest extends TestCase
     {
         $milikku = $this->orderUntuk($pemilik = $this->user(), $this->barang(nama: 'Amplop'), 1);
         $milikLain = $this->orderUntuk($this->user(), $this->barang(nama: 'Stapler'), 1);
+        $admin = $this->user('admin');
 
-        // Admin: semua pengajuan
-        $this->actingAs($this->user('admin'))->get(route('pengajuan.index'))
-            ->assertOk()->assertViewIs('admin.transaksi.index')->assertSee($milikku->code)->assertSee($milikLain->code);
+        // Admin: halaman persetujuan, data semua pengajuan
+        $this->actingAs($admin)->get(route('pengajuan.index'))->assertOk()->assertViewIs('admin.transaksi.index')->assertViewHas('initial.lingkup', 'semua');
+        $this->assertEqualsCanonicalizing([$milikku->code, $milikLain->code], $this->dataPengajuan($admin, ['lingkup' => 'semua'])->pluck('code')->all());
 
-        // Customer: hanya miliknya
-        $this->actingAs($pemilik)->get(route('pengajuan.index'))
-            ->assertOk()->assertViewIs('customer.pengajuan.index')->assertSee($milikku->code)->assertDontSee($milikLain->code);
+        // Customer: hanya miliknya; tidak boleh meminta semua pengajuan
+        $this->actingAs($pemilik)->get(route('pengajuan.index'))->assertOk()->assertViewIs('customer.pengajuan.index');
+        $this->assertSame([$milikku->code], $this->dataPengajuan($pemilik, ['lingkup' => 'saya'])->pluck('code')->all());
+        $this->actingAs($pemilik)->getJson(route('pengajuan.data', ['lingkup' => 'semua']))->assertForbidden();
     }
 
+    public function test_data_pengajuan_filter_status_dan_pencarian(): void
+    {
+        $budi = $this->user();
+        $budi->forceFill(['username' => 'budi'])->save();
+        $amplop = $this->orderUntuk($budi, $this->barang(nama: 'Amplop Coklat'), 1);
+        $stapler = $this->orderUntuk($this->user(), $this->barang(nama: 'Stapler'), 1);
+        $stapler->update(['status' => 'ditolak']);
+        $admin = $this->user('admin');
+
+        $kode = fn (array $params) => $this->dataPengajuan($admin, ['lingkup' => 'semua'] + $params)->pluck('code')->all();
+
+        $this->assertSame([$stapler->code], $kode(['status' => 'ditolak']));
+        $this->assertSame([$amplop->code], $kode(['q' => 'coklat']));          // nama persediaan
+        $this->assertSame([$amplop->code], $kode(['q' => 'bud']));             // pemohon (khusus daftar semua)
+        $this->assertSame([$stapler->code], $kode(['q' => $stapler->code]));   // kode pengajuan
+        $this->assertSame([], $kode(['q' => 'bud', 'status' => 'ditolak']));
+
+        // Di Pengajuan Saya, pencarian nama pemohon tidak berlaku (semuanya milik sendiri)
+        $this->assertSame([], $this->dataPengajuan($budi, ['lingkup' => 'saya', 'q' => 'bud'])->pluck('code')->all());
+
+        $this->actingAs($admin)->getJson(route('pengajuan.data', ['status' => 'hilang']))->assertJsonValidationErrors('status');
+        $this->actingAs($admin)->get(route('pengajuan.index', ['status' => 'ditolak', 'q' => 'x']))
+            ->assertViewHas('initial', fn ($i) => $i['status'] === 'ditolak' && $i['q'] === 'x');
+    }
     public function test_url_lama_pengajuan_diarahkan(): void
     {
         $this->actingAs($this->user('admin'))->get('/admin/transaksi?page=2')->assertRedirect(route('pengajuan.index', ['page' => 2]));
@@ -498,19 +536,18 @@ class KeranjangPengajuanTest extends TestCase
     {
         $admin = $this->user('admin');
         $milikAdmin = $this->orderUntuk($admin, $this->barang(nama: 'Amplop'), 1);
-        $milikCustomer = $this->orderUntuk($this->user(), $this->barang(nama: 'Stapler'), 1);
+        $this->orderUntuk($this->user(), $this->barang(nama: 'Stapler'), 1);
 
         $this->actingAs($admin)->get(route('pengajuan.saya'))
             ->assertOk()
             ->assertViewIs('customer.pengajuan.index')
-            ->assertSee('BPS Admin')
-            ->assertSee($milikAdmin->code)
-            ->assertDontSee($milikCustomer->code);
+            ->assertViewHas('initial.lingkup', 'saya')
+            ->assertSee('BPS Admin');
+        $this->assertSame([$milikAdmin->code], $this->dataPengajuan($admin, ['lingkup' => 'saya'])->pluck('code')->all());
 
         // Menu sidebar admin mengarah ke halaman ini
         $this->actingAs($admin)->get(route('barang.katalog'))->assertSee(route('pengajuan.saya'));
     }
-
     public function test_pengajuan_admin_tidak_boleh_memakai_stok_yang_sudah_diajukan_customer(): void
     {
         $barang = $this->barang(stock: 1, nama: 'Stapler');
@@ -549,6 +586,114 @@ class KeranjangPengajuanTest extends TestCase
             ->assertSee('Pengajuan admin langsung disetujui dan stok langsung dipotong.');
     }
 
+    public function test_persetujuan_memakai_dialog_aplikasi_bukan_confirm_browser(): void
+    {
+        $order = $this->orderUntuk($this->user(), $this->barang(nama: 'Amplop'), 1);
+
+        $html = $this->actingAs($this->user('admin'))->get(route('pengajuan.index'))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('confirm(', $html);
+        $this->assertStringContainsString('id="modalSetujui"', $html);
+
+        // Setiap dialog punya tombol tutup (✕) di pojok kanan atas
+        foreach (['modalSetujui', 'modalTolak'] as $id) {
+            $dialog = substr($html, strpos($html, "id=\"$id\""), 2500);
+            $this->assertStringContainsString('aria-label="Tutup"', $dialog, "$id tanpa tombol tutup");
+        }
+
+        // Dialog Tolak bisa ditutup dengan klik di luar kotak / Esc (skrip dialog bersama di layout)
+        $this->assertStringContainsString('id="modalTolak" data-dialog', $html);
+        $this->assertStringContainsString("e.target.matches('[data-dialog]')", $html);
+        $this->assertStringContainsString('@click="openSetujuiModal(item)"', $html);
+
+        // Tombol setujui/tolak hanya untuk pengajuan pending di daftar semua pengajuan (status_url)
+        $this->assertSame(route('pengajuan.update-status', $order), $this->dataPengajuan($this->user('admin'), ['lingkup' => 'semua'])->sole()['status_url']);
+        $this->assertNull($this->dataPengajuan($order->user, ['lingkup' => 'saya'])->sole()['status_url']);
+    }
+
+    public function test_setujui_dan_tolak_dari_halaman_persetujuan_mengembalikan_json(): void
+    {
+        $barang = $this->barang(stock: 10, nama: 'Amplop');
+        $disetujui = $this->orderUntuk($this->user(), $barang, 3);
+        $ditolak = $this->orderUntuk($this->user(), $barang, 2);
+        $admin = $this->user('admin');
+
+        $this->actingAs($admin)->patchJson(route('pengajuan.update-status', $disetujui), ['status' => 'disetujui'])
+            ->assertOk()->assertExactJson(['message' => 'Permintaan persediaan berhasil disetujui dan stok telah dipotong.']);
+        $this->actingAs($admin)->patchJson(route('pengajuan.update-status', $ditolak), ['status' => 'ditolak', 'alasan' => 'Stok untuk acara'])
+            ->assertOk()->assertExactJson(['message' => 'Permintaan persediaan telah ditolak.']);
+        $this->actingAs($admin)->patchJson(route('pengajuan.update-status', $ditolak), ['status' => 'disetujui'])
+            ->assertUnprocessable()->assertExactJson(['message' => 'Transaksi ini sudah diproses sebelumnya.']);
+
+        $this->assertSame(7, $barang->fresh()->stock);
+        $this->assertSame('Stok untuk acara', $this->dataPengajuan($admin, ['lingkup' => 'semua', 'status' => 'ditolak'])->sole()['alasan']);
+    }
+
+    // ─── Batalkan pengajuan ───
+
+    public function test_pemohon_membatalkan_pengajuan_pending_dan_stok_dipesan_dilepas(): void
+    {
+        $barang = $this->barang(stock: 5, nama: 'Stapler');
+        $pemohon = $this->user();
+        $order = $this->orderUntuk($pemohon, $barang, 4);
+        $this->assertSame(1, Barang::withDipesan()->find($barang->id)->tersedia);
+
+        $this->actingAs($pemohon)->patchJson(route('pengajuan.batal', $order))
+            ->assertOk()
+            ->assertExactJson(['message' => "Pengajuan {$order->code} dibatalkan.", 'status' => 'dibatalkan']);
+
+        $this->assertSame('dibatalkan', $order->fresh()->status);
+        $this->assertSame(5, Barang::withDipesan()->find($barang->id)->tersedia, 'reservasi dilepas');
+        $this->assertSame(5, $barang->fresh()->stock, 'stok fisik tidak berubah');
+        $this->assertDatabaseHas('riwayat', [
+            'order_id' => $order->id, 'actor_id' => $pemohon->id, 'status_sebelumnya' => 'pending', 'status_sesudah' => 'dibatalkan',
+        ]);
+
+        // Pengajuan yang sudah dibatalkan tidak bisa disetujui admin
+        $this->actingAs($this->user('admin'))->patch(route('pengajuan.update-status', $order), ['status' => 'disetujui'])
+            ->assertSessionHas('error', 'Transaksi ini sudah diproses sebelumnya.');
+        $this->assertSame(5, $barang->fresh()->stock);
+    }
+
+    public function test_pengajuan_yang_sudah_diproses_tidak_bisa_dibatalkan(): void
+    {
+        $pemohon = $this->user();
+        $order = $this->orderUntuk($pemohon, $this->barang(), 1);
+        $this->actingAs($this->user('admin'))->patch(route('pengajuan.update-status', $order), ['status' => 'disetujui']);
+
+        $this->actingAs($pemohon)->patchJson(route('pengajuan.batal', $order))
+            ->assertUnprocessable()
+            ->assertExactJson(['message' => 'Pengajuan ini sudah diproses admin sehingga tidak bisa dibatalkan.', 'status' => 'disetujui']);
+
+        $this->assertSame('disetujui', $order->fresh()->status);
+    }
+
+    public function test_tidak_bisa_membatalkan_pengajuan_orang_lain(): void
+    {
+        $order = $this->orderUntuk($this->user(), $this->barang(), 1);
+
+        $this->actingAs($this->user())->patchJson(route('pengajuan.batal', $order))->assertNotFound();
+        $this->assertSame('pending', $order->fresh()->status);
+    }
+
+    public function test_tombol_batalkan_hanya_untuk_pengajuan_pending(): void
+    {
+        $pemohon = $this->user();
+        $pending = $this->orderUntuk($pemohon, $this->barang(nama: 'Amplop'), 1);
+        $dibatalkan = $this->orderUntuk($pemohon, $this->barang(nama: 'Map'), 1);
+        $dibatalkan->update(['status' => 'dibatalkan']);
+
+        $this->actingAs($pemohon)->get(route('pengajuan.index'))->assertOk()->assertSee('id="modalBatal" data-dialog', false);
+
+        $daftar = $this->dataPengajuan($pemohon, ['lingkup' => 'saya'])->keyBy('code');
+        $this->assertSame(route('pengajuan.batal', $pending), $daftar[$pending->code]['batal_url']);
+        $this->assertNull($daftar[$dibatalkan->code]['batal_url']);
+
+        // Admin melihat status dibatalkan (tanpa tombol setujui/tolak) di halaman persetujuan
+        $diAdmin = $this->dataPengajuan($this->user('admin'), ['lingkup' => 'semua'])->keyBy('code')[$dibatalkan->code];
+        $this->assertSame(['dibatalkan', 'Dibatalkan', null], [$diAdmin['status'], $diAdmin['status_label'], $diAdmin['status_url']]);
+        $this->actingAs($this->user('admin'))->get(route('pengajuan.index'))->assertSee("'Dibatalkan pemohon'", false);
+    }
     public function test_customer_tidak_bisa_menyetujui(): void
     {
         $order = $this->orderUntuk($this->user(), $this->barang(), 1);

@@ -61,9 +61,11 @@ foreach (['admin/barang', 'customer/katalog'] as $urlLama) {
 Route::prefix('pengajuan')->name('pengajuan.')->middleware(['auth', 'role:admin|customer'])->group(function () {
     Route::get('/', [OrderController::class, 'index'])->name('index');
     Route::get('/saya', [OrderController::class, 'saya'])->name('saya');
+    Route::get('/data', [OrderController::class, 'data'])->name('data');
     Route::get('/{order}/cetak-pdf', [OrderController::class, 'cetakPdf'])->name('cetak-pdf');
     Route::post('/', [OrderController::class, 'store'])->name('store');
     Route::patch('/{order}/status', [OrderController::class, 'updateStatus'])->middleware('role:admin')->name('update-status');
+    Route::patch('/{order}/batal', [OrderController::class, 'batal'])->name('batal'); // pemohon membatalkan pengajuan pending miliknya
 });
 
 // ─── 🛒 KERANJANG BARANG (admin & customer), hak milik dicek di CartController; kirim pengajuan: pengajuan.store ───

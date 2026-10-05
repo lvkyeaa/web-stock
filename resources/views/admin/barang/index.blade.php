@@ -6,61 +6,44 @@
 
     {{-- Daftar dimuat lewat JSON (barang.data): ganti halaman / filter / tambah / edit / ubah stok / hapus tidak me-reload halaman --}}
     <div class="space-y-6" x-data="barangList(@js($initial))" @persediaan-diperbarui.window="load()">
-        {{-- HEADER BARIS UTAMA --}}
-        <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+        {{-- 1. JUDUL + TAMBAH MANUAL --}}
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
                 <h2 class="text-xl font-semibold tracking-tight text-slate-800">Persediaan &amp; Stok</h2>
                 <p class="text-xs text-slate-400 mt-0.5">Manajemen stok logistik dan persediaan kantor</p>
             </div>
 
-            {{-- KELOMPOK AKSI KANAN (CARI, IMPOR EXCEL, & TAMBAH BARANG) --}}
-            <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-                {{-- Form Pencarian --}}
-                <form action="{{ route('barang.index') }}" method="GET" @submit.prevent="search()" class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                    <label class="flex items-center gap-2 text-[11px] font-semibold text-slate-500 cursor-pointer select-none whitespace-nowrap">
-                        <input type="checkbox" role="switch" name="stok_habis" value="1" x-model="filters.stokHabis" @change="search()" class="peer sr-only">
-                        <span aria-hidden="true" class="relative inline-block w-9 h-5 shrink-0 rounded-full bg-slate-300 transition-colors peer-checked:bg-bps-blue peer-focus-visible:ring-2 peer-focus-visible:ring-bps-blue/40 after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-4"></span>
-                        Tampilkan stok habis
-                    </label>
+            <button type="button" onclick="bersihkanGalat(document.querySelector('#modalTambah form')); document.getElementById('modalTambah').classList.remove('hidden')"
+                class="flex items-center justify-center gap-2 bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-sm hover:shadow-md cursor-pointer whitespace-nowrap uppercase tracking-wider">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Tambah Manual
+            </button>
+        </div>
 
-                    <div class="relative w-full sm:w-60">
-                        <input
-                            type="text"
-                            name="search"
-                            x-model="filters.search" @input.debounce.400ms="search()"
-                            placeholder="Cari nama persediaan..."
-                            class="w-full pl-9 pr-9 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-bps-blue">
+        {{-- 2. IMPOR EXCEL: diproses di latar belakang (queue), status dilihat di Riwayat Impor --}}
+        <div class="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm flex flex-col lg:flex-row lg:items-center gap-3">
+            <div class="flex items-start gap-3 min-w-0 lg:flex-1">
+                <div class="w-10 h-10 shrink-0 rounded-xl bg-orange-50 text-bps-orange flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-slate-800">Impor dari Excel</p>
+                    <p class="text-xs text-slate-400">Kolom: <span class="font-mono">nama_barang</span>, <span class="font-mono">jumlah</span>, <span class="font-mono">satuan</span>. Nama yang sudah ada stoknya ditambah, nama baru dibuat.</p>
+                </div>
+            </div>
 
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                            </svg>
-                        </div>
-
-                        {{-- Hapus kata kunci (di dalam kolom pencarian) --}}
-                        <button type="button" x-show="filters.search" x-cloak @click="resetSearch()" title="Hapus pencarian" aria-label="Hapus pencarian"
-                            class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    <button type="submit" class="bg-gradient-to-r from-bps-blue to-bps-blue-dark text-white px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-sm hover:shadow cursor-pointer uppercase tracking-wider">
-                        Cari
-                    </button>
-
-                </form>
-
-                {{-- Form Impor Excel: diproses di latar belakang (queue), status dilihat di Riwayat Impor --}}
+            <div class="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
                 <form action="{{ route('barang.import') }}" method="POST" enctype="multipart/form-data" onsubmit="kirimImport(event)"
-                    class="flex items-center gap-2 bg-white p-1.5 pl-3 pr-1.5 rounded-xl border border-orange-100/70 shadow-sm w-full sm:w-auto">
+                    class="flex items-center gap-2 p-1.5 pl-3 rounded-xl border border-slate-200 bg-slate-50 w-full sm:w-auto sm:min-w-[22rem]">
                     @csrf
                     <input type="file" name="file_excel" required accept=".xlsx,.xls,.csv"
-                        class="block w-full text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-orange-50 file:text-bps-orange hover:file:bg-orange-100 cursor-pointer focus:outline-none" />
-
+                        class="block min-w-0 flex-1 text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-orange-50 file:text-bps-orange hover:file:bg-orange-100 cursor-pointer focus:outline-none" />
                     <button type="submit"
-                        class="bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white text-[11px] font-bold py-2 px-3 rounded-lg shadow-sm hover:shadow transition-all cursor-pointer whitespace-nowrap uppercase tracking-wider disabled:opacity-60 disabled:cursor-wait">
+                        class="shrink-0 bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white text-[11px] font-bold py-2 px-3 rounded-lg shadow-sm hover:shadow transition-all cursor-pointer whitespace-nowrap uppercase tracking-wider disabled:opacity-60 disabled:cursor-wait">
                         Impor
                     </button>
                 </form>
@@ -72,17 +55,61 @@
                     </svg>
                     Riwayat Impor
                 </button>
-
-                {{-- Tombol Tambah Barang Manual --}}
-                <button onclick="bersihkanGalat(document.querySelector('#modalTambah form')); document.getElementById('modalTambah').classList.remove('hidden')"
-                    class="flex items-center justify-center gap-2 bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-sm hover:shadow-md cursor-pointer whitespace-nowrap uppercase tracking-wider">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Tambah Manual
-                </button>
             </div>
         </div>
+
+        {{-- 3. FILTER: cari (debounce), urutan, stok habis — daftar dimuat ulang lewat JSON --}}
+        <form action="{{ route('barang.index') }}" method="GET" @submit.prevent="search()"
+            class="rounded-2xl border border-slate-200/70 bg-white p-3 shadow-sm flex flex-col md:flex-row md:items-center gap-3">
+            <div class="flex items-center gap-2 md:flex-1 min-w-0">
+                <div class="relative flex-1 min-w-0">
+                    <input
+                        type="text"
+                        name="search"
+                        x-model="filters.search" @input.debounce.400ms="search()"
+                        placeholder="Cari nama persediaan..."
+                        class="w-full pl-9 pr-9 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
+
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                    </div>
+
+                    {{-- Hapus kata kunci (di dalam kolom pencarian) --}}
+                    <button type="button" x-show="filters.search" x-cloak @click="resetSearch()" title="Hapus pencarian" aria-label="Hapus pencarian"
+                        class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <button type="submit" class="shrink-0 bg-gradient-to-r from-bps-blue to-bps-blue-dark text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm hover:shadow cursor-pointer uppercase tracking-wider">
+                    Cari
+                </button>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                {{-- Urutan: terpopuler = paling sering diminta (jumlah pengajuan disetujui) --}}
+                <label class="flex items-center gap-2 text-[11px] font-semibold text-slate-500 whitespace-nowrap">
+                    Urutkan
+                    <select x-model="filters.urut" @change="search()"
+                        class="py-2 pl-3 pr-8 rounded-xl border border-slate-200 bg-white text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-bps-blue cursor-pointer">
+                        <option value="populer">Terpopuler (90 hari terakhir)</option>
+                        <option value="populer_total">Terpopuler (total)</option>
+                        <option value="terbaru">Terbaru</option>
+                        <option value="nama">Nama A–Z</option>
+                    </select>
+                </label>
+
+                <label class="flex items-center gap-2 text-[11px] font-semibold text-slate-500 cursor-pointer select-none whitespace-nowrap">
+                    <input type="checkbox" role="switch" name="stok_habis" value="1" x-model="filters.stokHabis" @change="search()" class="peer sr-only">
+                    <span aria-hidden="true" class="relative inline-block w-9 h-5 shrink-0 rounded-full bg-slate-300 transition-colors peer-checked:bg-bps-blue peer-focus-visible:ring-2 peer-focus-visible:ring-bps-blue/40 after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-4"></span>
+                    Tampilkan stok habis
+                </label>
+            </div>
+        </form>
 
         {{-- TABEL DAFTAR BARANG --}}
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -95,6 +122,7 @@
                             <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider">Kode</th>
                             <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider">Nama Persediaan</th>
                             <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider">Stock</th>
+                            <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider">Diminta</th>
                             <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider">Satuan</th>
                             <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider">Aksi</th>
                         </tr>
@@ -123,6 +151,24 @@
                                     </div>
                                     <p x-show="item.dipesan > 0" class="mt-0.5 text-[11px] font-medium text-amber-600 whitespace-nowrap"
                                         x-text="`${item.dipesan} diajukan · ${item.tersedia} tersedia`"></p>
+                                </td>
+                                {{-- Popularitas: jumlah pengajuan yang disetujui (90 hari terakhir & total) --}}
+                                {{-- Gaya sama dengan kartu katalog; angka tidak diringkas (tampilan pengelolaan) --}}
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <template x-if="item.diminta_total > 0">
+                                        <div>
+                                            <p class="flex items-center gap-1 text-xs" :class="item.diminta_90_hari > 0 ? 'text-slate-700' : 'text-slate-400'">
+                                                <svg class="w-4 h-4 shrink-0" :class="item.diminta_90_hari > 0 ? 'text-bps-orange' : 'text-slate-300'" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                                    <path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd" />
+                                                </svg>
+                                                <span class="text-sm font-bold tabular-nums" :class="item.diminta_90_hari > 0 ? 'text-slate-800' : 'text-slate-400'" x-text="item.diminta_90_hari + '×'"></span>
+                                                <span class="font-medium">diminta</span>
+                                                <span class="text-slate-400">· 90 hari terakhir</span>
+                                            </p>
+                                            <p class="mt-0.5 pl-5 text-[11px] text-slate-400" x-text="`${item.diminta_total}× total`"></p>
+                                        </div>
+                                    </template>
+                                    <span x-show="item.diminta_total === 0" class="text-sm text-slate-300" title="Belum pernah diminta">—</span>
                                 </td>
                                 <td class="px-6 py-4 text-sm text-gray-600" x-text="item.satuan"></td>
                                 <td class="px-6 py-4">
@@ -157,13 +203,13 @@
                         </template>
 
                         <tr x-show="loading && !items.length">
-                            <td colspan="7" class="px-6 py-12 text-center text-gray-400 text-sm">Memuat data persediaan...</td>
+                            <td colspan="8" class="px-6 py-12 text-center text-gray-400 text-sm">Memuat data persediaan...</td>
                         </tr>
                         <tr x-show="!loading && !error && !items.length" x-cloak>
-                            <td colspan="7" class="px-6 py-12 text-center text-gray-400 text-sm">Belum ada data persediaan.</td>
+                            <td colspan="8" class="px-6 py-12 text-center text-gray-400 text-sm">Belum ada data persediaan.</td>
                         </tr>
                         <tr x-show="error" x-cloak>
-                            <td colspan="7" class="px-6 py-12 text-center text-sm text-red-600">
+                            <td colspan="8" class="px-6 py-12 text-center text-sm text-red-600">
                                 <span x-text="error"></span>
                                 <button type="button" @click="load()" class="ml-2 font-semibold underline cursor-pointer">Coba lagi</button>
                             </td>
@@ -178,7 +224,7 @@
     </div>
 
     {{-- MODAL TAMBAH BARANG --}}
-    <div id="modalTambah" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div id="modalTambah" data-dialog class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
             <div class="flex items-center justify-between mb-5">
                 <h3 class="text-lg font-bold text-gray-900">Tambah Persediaan</h3>
@@ -234,7 +280,7 @@
     </div>
 
     {{-- MODAL EDIT BARANG --}}
-    <div id="modalEdit" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div id="modalEdit" data-dialog class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
             <div class="flex items-center justify-between mb-5">
                 <h3 class="text-lg font-bold text-gray-900">Edit Persediaan</h3>
@@ -287,7 +333,7 @@
     </div>
 
     {{-- MODAL UBAH STOK --}}
-    <div id="modalStock" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div id="modalStock" data-dialog class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
             <div class="flex items-center justify-between mb-5">
                 <div>

@@ -72,7 +72,9 @@ class PersetujuanPeminjamanTest extends TestCase
         $this->actingAs($this->user('admin'))->get(route('peminjaman.index'))
             ->assertOk()
             ->assertSee('x-text="statusError"', false)
-            ->assertSee('x-for="c in statusConflicts"', false);
+            ->assertSee('x-for="c in statusConflicts"', false)
+            // Dialog konfirmasi punya tombol tutup (✕) di pojok kanan atas
+            ->assertSee('<button type="button" @click="answer(false)" aria-label="Tutup"', false);
     }
 
     public function test_kalender_tidak_disembunyikan_dengan_display_none_saat_tab_tabel(): void
