@@ -7,12 +7,18 @@ use App\Http\Controllers\BarangController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\MajapahitController;
 use Illuminate\Support\Facades\Route;
 
 // ─── 🔑 HALAMAN UTAMA / LOGIN ──────────────────────────────────
 Route::get('/', [AuthController::class, 'showLogin'])->name('login');
+Route::get('/webadmin', [AuthController::class, 'showWebAdminLogin'])->name('login.webadmin'); // form username & password (tidak ditautkan dari halaman login)
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+// Keycloak routes
+Route::get('/login/majapahit', [MajapahitController::class, 'redirectToMajapahit']);
+Route::get('/majapahit-auth', [MajapahitController::class, 'handleMajapahitCallback']);
 
 // ─── 🚗 PEMINJAMAN FASILITAS (MOBIL / RUANG / ZOOM) — SATU ROUTE UNTUK SEMUA PERAN ───
 // Hak akses per peminjaman (milik sendiri, status, admin) dicek di BookingController

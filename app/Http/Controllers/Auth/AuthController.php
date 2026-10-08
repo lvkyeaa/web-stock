@@ -26,6 +26,16 @@ class AuthController extends Controller
         return view('auth.login');
     }
 
+    // Form login username/email & password (halaman utama login memakai Majapahit)
+    public function showWebAdminLogin()
+    {
+        if (Auth::check()) {
+            return $this->redirectByRole(Auth::user());
+        }
+
+        return view('auth.webadmin');
+    }
+
     public function login(Request $request)
     {
         $request->validate([

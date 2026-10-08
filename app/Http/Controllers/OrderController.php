@@ -83,7 +83,8 @@ class OrderController extends Controller
                 'status_label' => self::STATUS[$order->status] ?? $order->status,
                 'alasan'       => $order->alasan,
                 'dibuat'       => $order->created_at->tanggalJam(),
-                'pemohon'      => $order->user->username ?? $order->user->name ?? '-',                'items'        => $order->items->map->only(['nama_barang', 'satuan', 'jumlah'])->values(),
+                'pemohon'      => $order->user->name ?? $order->user->username ?? '-',
+                'items'        => $order->items->map->only(['nama_barang', 'satuan', 'jumlah'])->values(),
                 // Aksi yang boleh dilakukan pada baris ini (null = tidak ada tombolnya)
                 'pdf_url'      => $order->status === 'disetujui' ? route('pengajuan.cetak-pdf', $order) : null,
                 'batal_url'    => $order->status === 'pending' && $order->user_id === $user->id ? route('pengajuan.batal', $order) : null,

@@ -22,7 +22,6 @@ class DatabaseSeeder extends Seeder
             FacilitySeeder::class,
             BookingSeeder::class,
             BarangSeeder::class,
-            OrderSeeder::class,
             RiwayatSeeder::class,
         ]);
     }

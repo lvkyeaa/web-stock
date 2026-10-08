@@ -5,30 +5,41 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Barang;
 use App\Models\Order;
+use App\Models\Peminjaman;
+use App\Models\Riwayat;
 use App\Models\User;
-use App\Models\Peminjaman; // 💡 Memanggil model Peminjaman untuk merekap data fasilitas
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        // 1. Statistik Inventaris Barang & User (Bawaan Lama Admin)
+        $hariIni = today();
+
+        // Persediaan & pengajuan persediaan
         $stats = [
-            'total_barang'     => Barang::count(),
-            'total_users'      => User::role('customer')->count(),
-            'pending'          => Order::where('status', 'pending')->count(),
-            'disetujui'        => Order::where('status', 'disetujui')->count(),
+            'total_barang'        => Barang::count(),
+            'stok_habis'          => Barang::count() - Barang::whereTersedia()->count(), // tidak ada stok yang bisa diajukan
+            'pending'             => Order::where('status', 'pending')->count(),
+            // Pengajuan yang disetujui bulan ini (waktu persetujuan dari riwayat)
+            'disetujui_bulan_ini' => Riwayat::where('status_sesudah', 'disetujui')
+                ->where('created_at', '>=', $hariIni->copy()->startOfMonth())
+                ->distinct('order_id')
+                ->count('order_id'),
+            'total_users'         => User::count(),
         ];
 
-        // 2. 🆕 Statistik Peminjaman Fasilitas Masuk (Mobil & Ruang)
+        // Peminjaman fasilitas
         $peminjamanStats = [
-            'total'     => Peminjaman::count(),
             'pending'   => Peminjaman::where('status', 'pending')->count(),
+            // Disetujui & berlangsung (sebagian) hari ini
+            'hari_ini'  => Peminjaman::where('status', 'disetujui')
+                ->where('waktu_mulai', '<', $hariIni->copy()->addDay())
+                ->where('waktu_selesai', '>', $hariIni)
+                ->count(),
             'disetujui' => Peminjaman::where('status', 'disetujui')->count(),
             'ditolak'   => Peminjaman::where('status', 'ditolak')->count(),
         ];
 
-        // Mengirimkan variabel $stats dan $peminjamanStats ke view dashboard milik admin
         return view('admin.dashboard', compact('stats', 'peminjamanStats'));
     }
 }

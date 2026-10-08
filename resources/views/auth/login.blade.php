@@ -22,7 +22,7 @@
                 </svg>
             </div>
             <h2 class="text-xl font-extrabold text-bps-blue-dark tracking-tight">Selamat Datang</h2>
-            <p class="text-xs text-slate-400">Masuk menggunakan akun Anda</p>
+            <p class="text-xs text-slate-400">Masuk menggunakan akun Majapahit Anda</p>
         </div>
 
         {{-- Alert Error jika Login Gagal --}}
@@ -34,29 +34,14 @@
             </div>
         @endif
 
-        {{-- Form Login --}}
-        <form action="{{ route('login.post') }}" method="POST" class="space-y-4">
-            @csrf
-            
-            <div>
-                <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Username atau Email</label>
-                <input type="text" name="username" value="{{ old('username') }}" required autofocus
-                    class="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-bps-blue/20 focus:border-bps-blue transition duration-200" 
-                    placeholder="Contoh: admin / user@bps.go.id">
-            </div>
-
-            <div>
-                <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Kata Sandi</label>
-                <input type="password" name="password" required
-                    class="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-bps-blue/20 focus:border-bps-blue transition duration-200" 
-                    placeholder="••••••••">
-            </div>
-
-            <button type="submit" 
-                class="w-full py-3 bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 tracking-wider uppercase mt-2">
-                Masuk Sekarang
-            </button>
-        </form>
+        {{-- Login lewat Majapahit (SSO) --}}
+        <a href="{{ url('/login/majapahit') }}"
+            class="w-full py-3.5 px-4 bg-gradient-to-r from-[#4a3c90] to-[#2970d6] hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3956b3]/50 focus-visible:ring-offset-2 text-white text-base rounded-xl shadow-lg shadow-[#3956b3]/30 hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-3">
+            <span class="w-9 h-9 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm">
+                <img src="{{ asset('images/majapahit.png') }}" alt="" class="w-7 h-7 object-contain">
+            </span>
+            <span>Masuk dengan <strong class="font-bold">Majapahit</strong></span>
+        </a>
 
         {{-- 💡 TOMBOL PORTAL MONITORING YANG DISEMBUNYIKAN DI SINI --}}
         <div class="text-center pt-4 border-t border-slate-100 flex flex-col gap-2">

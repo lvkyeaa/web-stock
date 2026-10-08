@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -25,5 +26,10 @@ class AppServiceProvider extends ServiceProvider
         // $tanggal->tanggalJam() → 1 Januari 2026, 10:00
         Carbon::macro('tanggal', fn () => $this->translatedFormat('j F Y'));
         Carbon::macro('tanggalJam', fn () => $this->translatedFormat('j F Y, H:i'));
+
+        // Driver Socialite 'keycloak' untuk login Majapahit (paket socialiteproviders/keycloak, konfigurasi di config/services.php)
+        Event::listen(function (\SocialiteProviders\Manager\SocialiteWasCalled $event) {
+            $event->extendSocialite('keycloak', \SocialiteProviders\Keycloak\Provider::class);
+        });
     }
 }
