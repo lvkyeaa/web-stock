@@ -24,3 +24,8 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+docker-compose.override.yml
+
+**/caddy
+frankenphp
+frankenphp-worker.php

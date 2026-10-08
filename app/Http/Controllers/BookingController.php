@@ -78,11 +78,12 @@ class BookingController extends Controller
             // Peminjaman saya: hanya milik pengguna yang login (diabaikan untuk tamu)
             ->when($user && $request->boolean('mine'), fn($query) => $query->where('user_id', $user->id))
             // Pencarian: keperluan, nama / username pemohon, nama fasilitas (diminta maupun diberikan)
-            ->when(trim((string) $request->q) !== '', function ($query) use ($request) {
+            ->when(trim((string) $request->q) !== '', function ($query) use ($request, $isGuest) {
                 $kata = '%' . trim($request->q) . '%';
-                $query->where(function ($q) use ($kata) {
+                $query->where(function ($q) use ($kata, $isGuest) {
                     $q->where('keperluan', 'like', $kata)
-                        ->orWhereHas('user', fn($u) => $u->where('username', 'like', $kata)->orWhere('name', 'like', $kata))
+                        // Tamu hanya bisa mencari nama pemohon (username = email, tidak boleh bisa ditebak dari halaman publik)
+                        ->orWhereHas('user', fn($u) => $u->where('name', 'like', $kata)->when(!$isGuest, fn($w) => $w->orWhere('username', 'like', $kata)))
                         ->orWhereHas('facilityRequest', fn($f) => $f->where('name', 'like', $kata))
                         ->orWhereHas('facility', fn($f) => $f->where('name', 'like', $kata));
                 });
@@ -97,7 +98,7 @@ class BookingController extends Controller
                 'requested_facility' => $item->facilityRequest->only(['id', 'name']),
                 'assigned_facility'  => $item->facility?->only(['id', 'name']),
                 'type'        => $item->facilityRequest->facilityType->only(['code', 'name', 'icon', 'color']) + ['label' => $item->facilityRequest->facilityType->label()],
-                'user'        => $item->user->username ?? 'Tidak Diketahui',
+                'user'        => $item->user->name ?? 'Tidak Diketahui',
                 'start'       => $item->waktu_mulai->toIso8601String(),
                 'end'         => $item->waktu_selesai->toIso8601String(),
                 'start_label' => $item->waktu_mulai->tanggalJam(),
@@ -156,12 +157,15 @@ class BookingController extends Controller
 
             return $this->berhasil($request, $isAdmin ? 'Peminjaman berhasil dibuat dan disetujui!' : 'Pengajuan peminjaman berhasil dikirim!');
         } catch (\Exception $e) {
-            // Jika ada eror database, erornya akan dilempar ke layar biar ketahuan
+            // Detail galat hanya dicatat di log, tidak ditampilkan ke pengguna
+            report($e);
+            $pesan = 'Terjadi kesalahan saat menyimpan peminjaman. Silakan coba lagi.';
+
             if ($request->expectsJson()) {
-                return response()->json(['message' => 'Terjadi kesalahan database: ' . $e->getMessage()], 500);
+                return response()->json(['message' => $pesan], 500);
             }
 
-            return redirect()->back()->withInput()->with('error', 'Terjadi kesalahan database: ' . $e->getMessage());
+            return redirect()->back()->withInput()->with('error', $pesan);
         }
     }
 
@@ -304,21 +308,17 @@ class BookingController extends Controller
         ]);
     }
 
-    // Cek Bentrok Jadwal dengan peminjaman yang sudah disetujui pada fasilitas yang diberikan
+    // Cek Bentrok Jadwal dengan peminjaman yang sudah disetujui pada fasilitas yang diberikan.
+    // Waktu selesai tidak termasuk (sama seperti kalender): 09:00–10:00 dan 10:00–11:00 berurutan, tidak bentrok.
+    // Bentrok jika masing-masing mulai sebelum yang lain selesai (tumpang tindih minimal 1 menit).
     private function bentrokDengan(string $facilityId, $mulai, $selesai, ?int $kecualiId = null): Collection
     {
         return Peminjaman::with(['user', 'facility'])
             ->where('facility_id', $facilityId)
             ->where('status', 'disetujui')
             ->when($kecualiId, fn($query) => $query->whereKeyNot($kecualiId))
-            ->where(function ($query) use ($mulai, $selesai) {
-                $query->whereBetween('waktu_mulai', [$mulai, $selesai])
-                    ->orWhereBetween('waktu_selesai', [$mulai, $selesai])
-                    ->orWhere(function ($q) use ($mulai, $selesai) {
-                        $q->where('waktu_mulai', '<=', $mulai)
-                            ->where('waktu_selesai', '>=', $selesai);
-                    });
-            })
+            ->where('waktu_mulai', '<', $selesai)
+            ->where('waktu_selesai', '>', $mulai)
             ->orderBy('waktu_mulai')
             ->get();
     }
@@ -335,7 +335,7 @@ class BookingController extends Controller
                 'conflicts' => $konflik->map(fn($item) => [
                     'id'          => $item->id,
                     'facility'    => $item->facility->name,
-                    'user'        => $item->user->username ?? 'Tidak Diketahui',
+                    'user'        => $item->user->name ?? 'Tidak Diketahui',
                     'start_label' => $item->waktu_mulai->tanggalJam(),
                     'end_label'   => $item->waktu_selesai->tanggalJam(),
                     'keperluan'   => $item->keperluan,

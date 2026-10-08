@@ -1,0 +1,36 @@
+services:
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      target: dev
+    volumes:
+      - .:/var/www
+      - /var/www/vendor
+      - /var/www/node_modules
+      - /var/www/bootstrap/cache
+      - /var/www/storage/logs
+      - /var/www/storage/framework
+      - ./docker/php/php-dev.ini:/usr/local/etc/php/php.ini
+      - ./docker/supervisor/laravel-workers-dev.conf:/etc/supervisor/conf.d/laravel-workers.conf
+      - ./backup:/var/www/backup
+      - storagedata:/var/www/storage/app
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_LOG_LEVEL: debug
+  db:
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+    entrypoint:
+      - bash
+      - -c
+      - |
+        cp /mnt/my.cnf /etc/mysql/my.cnf
+        chmod 644 /etc/mysql/my.cnf
+        exec docker-entrypoint.sh mysqld --defaults-extra-file=/etc/mysql/my.cnf
+    volumes:
+      - ./docker/mysql/my-dev.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - ./docker/mysql/my-dev.cnf:/mnt/my.cnf:ro

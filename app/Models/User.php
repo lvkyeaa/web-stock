@@ -19,11 +19,22 @@ class User extends Authenticatable
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['name', 'username', 'password'];
+    protected $fillable = ['name', 'username', 'email', 'password', 'team_id'];
 
     protected $hidden = ['password'];
 
     protected $casts = ['password' => 'hashed'];
+
+    public function team()
+    {
+        return $this->belongsTo(Team::class);
+    }
+
+    // Tim yang diketuai pegawai ini (bisa lebih dari satu)
+    public function chiefOfTeams()
+    {
+        return $this->belongsToMany(Team::class, 'team_chief')->using(TeamChief::class)->withTimestamps();
+    }
 
     public function orders()
     {

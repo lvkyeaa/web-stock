@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Barang;
 use App\Models\CartItem;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +16,14 @@ class CartController extends Controller
     {
         $items = $request->user()->keranjang()->map(fn (CartItem $item) => $item->untukKeranjang())->values();
 
-        return view('keranjang.index', compact('items'));
+        // Pilihan tim saat checkout beserta ketua tim/penanggung jawabnya
+        $teams = Team::with('chiefs:id,name')->orderBy('name')->get()->map(fn (Team $team) => [
+            'id'     => $team->id,
+            'name'   => $team->name,
+            'chiefs' => $team->chiefs->map->only(['id', 'name'])->values(),
+        ]);
+
+        return view('keranjang.index', compact('items', 'teams'));
     }
 
     // Dipanggil dari katalog lewat fetch (JSON)

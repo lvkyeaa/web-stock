@@ -5,6 +5,7 @@
 {{-- Ubah jumlah, hapus, dan kirim pengajuan lewat fetch (JSON): halaman tidak di-reload --}}
 <div class="space-y-6" x-data="keranjangPage(@js([
     'items'     => $items,
+    'teams'     => $teams,
     'csrf'      => csrf_token(),
     'updateUrl' => route('keranjang.update', ':id'),
     'deleteUrl' => route('keranjang.delete', ':id'),
@@ -96,10 +97,38 @@
                     </tbody>
                 </table>
             </div>
+            {{-- Tim wajib dipilih; jika tim punya lebih dari satu ketua, pemohon memilih salah satunya --}}
+            <div class="px-6 py-4 border-t border-gray-100 grid gap-4 sm:grid-cols-3">
+                <div>
+                    <span class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Diminta oleh</span>
+                    <p class="px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-700">{{ auth()->user()->name }}</p>
+                </div>
+                <div>
+                    <label for="team_id" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Tim <span class="text-red-500">*</span></label>
+                    <select id="team_id" x-model="teamId" @change="pilihTim()" required
+                        class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue/30 focus:border-bps-blue">
+                        <option value="">-- Pilih Tim --</option>
+                        <template x-for="team in teams" :key="team.id">
+                            <option :value="team.id" x-text="team.name"></option>
+                        </template>
+                    </select>
+                </div>
+                <div x-show="timTerpilih?.chiefs.length" x-cloak>
+                    <label for="person_responsible_user_id" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Ketua Tim/Penanggung Jawab <span class="text-red-500">*</span></label>
+                    <select id="person_responsible_user_id" x-model="chiefId" required :disabled="timTerpilih?.chiefs.length === 1"
+                        class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue/30 focus:border-bps-blue disabled:bg-gray-50 disabled:text-gray-700">
+                        <option value="" x-show="timTerpilih?.chiefs.length > 1">-- Pilih Ketua Tim/Penanggung Jawab --</option>
+                        <template x-for="chief in timTerpilih?.chiefs ?? []" :key="chief.id">
+                            <option :value="chief.id" x-text="chief.name"></option>
+                        </template>
+                    </select>
+                </div>
+            </div>
             <div class="px-6 py-4 bg-gray-50 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 border-t border-gray-100">
                 <p x-show="jumlahBermasalah" x-cloak class="text-xs font-medium text-amber-700 sm:mr-auto"
                     x-text="`Perbaiki ${jumlahBermasalah} item yang ditandai di atas untuk mengirim pengajuan.`"></p>
-                <button type="button" @click="kirim()" :disabled="jumlahBermasalah > 0 || sending || items.some(i => i.saving)"
+                <p x-show="!jumlahBermasalah && !siapDikirim" x-cloak class="text-xs font-medium text-gray-500 sm:mr-auto">Pilih tim dan ketua tim/penanggung jawab untuk mengirim pengajuan.</p>
+                <button type="button" @click="kirim()" :disabled="jumlahBermasalah > 0 || !siapDikirim || sending || items.some(i => i.saving)"
                     class="inline-flex items-center gap-2 bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white px-6 py-3 rounded-xl text-sm font-semibold transition shadow-[0_8px_24px_-12px_rgba(0,61,130,0.8)] cursor-pointer disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none disabled:cursor-not-allowed">
                     <span x-text="sending ? 'Mengirim...' : '🚀 Kirim Pengajuan Sekarang'"></span>
                 </button>
@@ -135,6 +164,24 @@
             items: config.items.map(item => ({ ...item, error: '', saving: false })),
             notice: null,
             sending: false,
+            teams: config.teams,
+            teamId: '',
+            chiefId: '',
+
+            get timTerpilih() {
+                return this.teams.find(team => team.id === this.teamId) ?? null;
+            },
+
+            // Tim wajib dipilih; ketua wajib dipilih hanya jika tim punya ketua
+            get siapDikirim() {
+                return !!this.timTerpilih && (!this.timTerpilih.chiefs.length || !!this.chiefId);
+            },
+
+            // Satu ketua: langsung terpilih; lebih dari satu: pemohon wajib memilih; tanpa ketua: dikosongkan
+            pilihTim() {
+                const chiefs = this.timTerpilih?.chiefs ?? [];
+                this.chiefId = chiefs.length === 1 ? chiefs[0].id : '';
+            },
 
             bermasalah(item) {
                 return item.jumlah > item.tersedia;
@@ -202,7 +249,7 @@
                 this.notice = null;
                 let pindahHalaman = false;
                 try {
-                    const response = await kirimJson(config.storeUrl, 'POST');
+                    const response = await kirimJson(config.storeUrl, 'POST', { team_id: this.teamId, person_responsible_user_id: this.chiefId || null });
                     const json = await response.json().catch(() => ({}));
 
                     if (!response.ok) {

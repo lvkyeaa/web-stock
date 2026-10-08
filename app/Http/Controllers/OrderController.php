@@ -6,6 +6,7 @@ use App\Models\Barang;
 use App\Models\CartItem;
 use App\Models\Order;
 use App\Models\Riwayat;
+use App\Models\Team;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -82,8 +83,7 @@ class OrderController extends Controller
                 'status_label' => self::STATUS[$order->status] ?? $order->status,
                 'alasan'       => $order->alasan,
                 'dibuat'       => $order->created_at->tanggalJam(),
-                'pemohon'      => $order->user->username ?? $order->user->name ?? '-',
-                'items'        => $order->items->map->only(['nama_barang', 'satuan', 'jumlah'])->values(),
+                'pemohon'      => $order->user->username ?? $order->user->name ?? '-',                'items'        => $order->items->map->only(['nama_barang', 'satuan', 'jumlah'])->values(),
                 // Aksi yang boleh dilakukan pada baris ini (null = tidak ada tombolnya)
                 'pdf_url'      => $order->status === 'disetujui' ? route('pengajuan.cetak-pdf', $order) : null,
                 'batal_url'    => $order->status === 'pending' && $order->user_id === $user->id ? route('pengajuan.batal', $order) : null,
@@ -103,10 +103,31 @@ class OrderController extends Controller
     // Customer: pending, stok dipesan sampai admin menyetujui. Admin: langsung disetujui & stok langsung dipotong.
     public function store(Request $request)
     {
+        $request->validate([
+            'team_id'                    => 'required|exists:teams,id',
+            'person_responsible_user_id' => 'nullable|string',
+        ], [
+            'team_id.required' => 'Pilih tim terlebih dahulu.',
+        ]);
+
+        // Tim yang punya ketua: penanggung jawab wajib dipilih dan harus salah satu ketua tim itu.
+        // Tim tanpa ketua: penanggung jawab dikosongkan (nama di PDF dibiarkan kosong)
+        $chiefs = Team::find($request->team_id)->chiefs();
+        if ($chiefs->exists()) {
+            if (! $request->filled('person_responsible_user_id')) {
+                return response()->json(['message' => 'Pilih ketua tim/penanggung jawab terlebih dahulu.'], 422);
+            }
+            if (! $chiefs->whereKey($request->person_responsible_user_id)->exists()) {
+                return response()->json(['message' => 'Ketua tim/penanggung jawab tidak sesuai dengan tim yang dipilih.'], 422);
+            }
+        } else {
+            $request->merge(['person_responsible_user_id' => null]);
+        }
+
         $user = $request->user();
         $isAdmin = $user->hasRole('admin');
 
-        $hasil = DB::transaction(function () use ($user, $isAdmin) {
+        $hasil = DB::transaction(function () use ($request, $user, $isAdmin) {
             // Satu checkout per user dalam satu waktu: submit ganda menunggu di sini, lalu mendapati keranjang kosong
             User::whereKey($user->id)->lockForUpdate()->first();
 
@@ -131,8 +152,10 @@ class OrderController extends Controller
             }
 
             $order = $user->orders()->create([
-                'code'   => Order::buatKode(),
-                'status' => $isAdmin ? 'disetujui' : 'pending',
+                'code'                       => Order::buatKode(),
+                'status'                     => $isAdmin ? 'disetujui' : 'pending',
+                'team_id'                  => $request->team_id,
+                'person_responsible_user_id' => $request->person_responsible_user_id,
             ]);
 
             $order->items()->createMany($keranjang->map(fn (CartItem $item) => [
@@ -301,7 +324,7 @@ class OrderController extends Controller
             return back()->with('error', 'Cetak dokumen hanya tersedia untuk transaksi yang telah disetujui (ACC).');
         }
 
-        $order->load(['user', 'items']);
+        $order->load(['user', 'team', 'personResponsible', 'items']);
 
         return Pdf::loadView('pdf.bukti-pengajuan', ['pengajuan' => $order, 'nomorSurat' => $order->nomorSurat()])
             ->setPaper('a4', 'portrait')

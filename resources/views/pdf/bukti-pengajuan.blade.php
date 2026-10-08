@@ -207,10 +207,14 @@
             </tr>
             <tr>
                 <td>
-                    ( ............................................................ )
+                    @if ($pengajuan->personResponsible)
+                        <span class="nama-pejabat">{{ $pengajuan->personResponsible->name }}</span>
+                    @else
+                        ( ............................................................ )
+                    @endif
                 </td>
                 <td>
-                    ( ............................................................ )
+                    <span class="nama-pejabat">{{ $pengajuan->user->name }}</span>
                 </td>
             </tr>
             <tr>

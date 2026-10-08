@@ -589,11 +589,11 @@
 </div>
 
 {{-- SCRIPT INSTANSIASIONAL FULLCALENDAR --}}
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="{{ asset('vendor/fullcalendar-6.1.11.min.js') }}"></script>
 
 {{-- Library Tambahan Popper & Tippy untuk Hover Info Kustom --}}
-<script src="https://unpkg.com/@popperjs/core@2"></script>
-<script src="https://unpkg.com/tippy.js@6"></script>
+<script src="{{ asset('vendor/popper-2.11.8.min.js') }}"></script>
+<script src="{{ asset('vendor/tippy-6.3.7.min.js') }}"></script>
 
 <script>
     const statusLabel = { pending: 'Menunggu', disetujui: 'Disetujui', ditolak: 'Ditolak' };

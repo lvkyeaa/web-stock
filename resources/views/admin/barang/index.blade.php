@@ -337,7 +337,9 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-1.5">Kode Persediaan <span class="font-normal text-gray-400">(opsional)</span></label>
-                                <input type="text" name="stock_id" maxlength="50" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
+                                <input type="text" name="stock_id" x-model="kodeBaru" @input.debounce.300ms="cekKode()" maxlength="50" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
+                                <p x-show="kodeSudahAda" class="mt-1.5 text-xs text-amber-700"
+                                    x-text="`Kode ini sudah dipakai '${kodeSudahAda}': stok akan ditambahkan ke persediaan tersebut, bukan dibuat baru.`"></p>
                             </div>
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-1.5">Satuan</label>
@@ -674,9 +676,11 @@
                 baru: false,     // membuat persediaan baru
                 namaBaru: '',
                 namaSudahAda: '', // nama persediaan yang sama dengan nama baru (stok akan ditambahkan ke sana)
+                kodeBaru: '',
+                kodeSudahAda: '', // nama persediaan yang sudah memakai kode baru (server menambahkan stok ke sana)
 
                 buka() {
-                    Object.assign(this, { kata: '', hasil: [], aktif: 0, memuat: true, pilihan: null, baru: false, namaBaru: '', namaSudahAda: '' });
+                    Object.assign(this, { kata: '', hasil: [], aktif: 0, memuat: true, pilihan: null, baru: false, namaBaru: '', namaSudahAda: '', kodeBaru: '', kodeSudahAda: '' });
                     const form = this.$root.querySelector('form');
                     form.reset();
                     bersihkanGalat(form);
@@ -739,6 +743,21 @@
                         this.namaSudahAda = sama ? sama.nama_barang : '';
                     } catch (e) {
                         this.namaSudahAda = '';
+                    }
+                },
+
+                // Peringatan jika kode baru sudah dipakai persediaan lain (server mencari berdasarkan kode lebih dulu)
+                async cekKode() {
+                    const kode = this.kodeBaru.trim();
+                    if (!kode) { this.kodeSudahAda = ''; return; }
+                    try {
+                        const params = new URLSearchParams({ kode, stok_habis: '1', per_page: '12' });
+                        const response = await fetch(`${dataUrl}?${params}`, { headers: { 'Accept': 'application/json' } });
+                        if (!response.ok) throw new Error(response.status);
+                        const sama = (await response.json()).data[0];
+                        if (kode === this.kodeBaru.trim()) this.kodeSudahAda = sama ? sama.nama_barang : '';
+                    } catch (e) {
+                        this.kodeSudahAda = '';
                     }
                 },
             };

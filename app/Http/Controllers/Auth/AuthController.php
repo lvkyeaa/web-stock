@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -28,15 +30,26 @@ class AuthController extends Controller
             'password.required' => 'Password wajib diisi.',
         ]);
 
+        // Batasi percobaan login: 5 kali gagal per menit untuk kombinasi username + IP yang sama
+        $kunciLimit = 'login|' . Str::lower($request->username) . '|' . $request->ip();
+        if (RateLimiter::tooManyAttempts($kunciLimit, 5)) {
+            return back()->withErrors([
+                'username' => 'Terlalu banyak percobaan login. Coba lagi dalam ' . RateLimiter::availableIn($kunciLimit) . ' detik.'
+            ])->withInput();
+        }
+
         // Login bisa memakai username atau email
         $field = filter_var($request->username, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
 
         if (!Auth::attempt([$field => $request->username, 'password' => $request->password])) {
+            RateLimiter::hit($kunciLimit, 60);
+
             return back()->withErrors([
                 'username' => 'Username/Email atau password salah.'
             ])->withInput();
         }
 
+        RateLimiter::clear($kunciLimit);
         $request->session()->regenerate();
 
         return $this->redirectByRole(Auth::user());

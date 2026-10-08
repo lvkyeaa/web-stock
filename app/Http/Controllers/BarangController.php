@@ -9,6 +9,8 @@ use App\Models\ImportStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -58,12 +60,14 @@ class BarangController extends Controller
             'page'       => 'nullable|integer|min:1',
             'per_page'   => 'nullable|integer|in:10,12',
             'urut'       => 'nullable|in:' . implode(',', self::URUTAN),
+            'kode'       => 'nullable|string|max:50', // cari persis berdasarkan kode (peringatan kode sudah dipakai di dialog Tambah)
         ]);
 
         $barang = Barang::withDipesan()
             ->withPopularitas()
             ->withCount('orderItems')
             ->when($request->filled('search'), fn ($query) => $query->where('nama_barang', 'like', '%' . $request->search . '%'))
+            ->when($request->filled('kode'), fn ($query) => $query->where('stock_id', trim($request->kode)))
             // Barang tanpa stok tersedia (habis, atau semuanya sudah diajukan) disembunyikan kecuali filter "tampilkan stok habis" aktif
             ->when(! $request->boolean('stok_habis'), fn ($query) => $query->whereTersedia())
             ->when($request->urut === 'populer', fn ($query) => $query->orderByDesc('diminta_90_hari')->orderByDesc('diminta_total')->orderBy('nama_barang'))
@@ -128,13 +132,18 @@ class BarangController extends Controller
             return response()->json(['message' => "Stok persediaan '{$existingBarang->nama_barang}' berhasil ditambahkan."]);
         }
 
-        Barang::create([
-            'stock_id'    => $kode,
-            'nama_barang' => Barang::rapikanNama($request->nama_barang),
-            'stock'       => (int) $request->stock,
-            'satuan'      => trim($request->satuan),
-            'foto'        => $request->hasFile('foto') ? $request->file('foto')->store('barang', 'public') : null,
-        ]);
+        try {
+            Barang::create([
+                'stock_id'    => $kode,
+                'nama_barang' => Barang::rapikanNama($request->nama_barang),
+                'stock'       => (int) $request->stock,
+                'satuan'      => trim($request->satuan),
+                'foto'        => $request->hasFile('foto') ? $request->file('foto')->store('barang', 'public') : null,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            // Nama / kode baru saja dibuat admin lain di sela pengecekan di atas (unique index di database)
+            return response()->json(['message' => 'Persediaan dengan nama atau kode ini baru saja ditambahkan. Muat ulang daftar lalu coba lagi.'], 422);
+        }
 
         return response()->json(['message' => 'Persediaan baru berhasil ditambahkan.']);
     }
@@ -149,7 +158,13 @@ class BarangController extends Controller
             'foto'        => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        $data = $request->only('stock_id', 'nama_barang', 'satuan');
+        // Nama unik (tanpa beda huruf besar/kecil & spasi berlebih), disimpan dalam bentuk rapi seperti saat dibuat
+        $sama = Barang::cariNama($request->nama_barang);
+        if ($sama && $sama->id !== $barang->id) {
+            throw ValidationException::withMessages(['nama_barang' => "Nama ini sudah dipakai persediaan '{$sama->nama_barang}'."]);
+        }
+
+        $data = $request->only('stock_id', 'satuan') + ['nama_barang' => Barang::rapikanNama($request->nama_barang)];
 
         if ($request->hasFile('foto')) {
             if ($barang->foto && Storage::disk('public')->exists($barang->foto)) {

@@ -96,6 +96,16 @@ Route::prefix('admin')
         // 👥 MANAJEMEN DATA PENGGUNA
         Route::prefix('manajemen-user')->name('manajemen-user.')->group(function () {
             Route::get('/', [Admin\ManajemenUserController::class, 'index'])->name('index');
+            Route::get('/data', [Admin\ManajemenUserController::class, 'data'])->name('data');
+
+            // Ketua tim/penanggung jawab: halaman + API JSON (daftar, tambah, hapus)
+            Route::prefix('ketua-tim')->name('ketua-tim.')->group(function () {
+                Route::get('/', [Admin\TeamChiefController::class, 'index'])->name('index');
+                Route::get('/data', [Admin\TeamChiefController::class, 'data'])->name('data');
+                Route::post('/', [Admin\TeamChiefController::class, 'store'])->name('store');
+                Route::delete('/{teamChief}', [Admin\TeamChiefController::class, 'destroy'])->name('destroy');
+            });
+
             Route::post('/', [Admin\ManajemenUserController::class, 'store'])->name('store');
             Route::put('/{id}', [Admin\ManajemenUserController::class, 'update'])->name('update');
             Route::delete('/{user}', [Admin\ManajemenUserController::class, 'destroy'])->name('destroy');

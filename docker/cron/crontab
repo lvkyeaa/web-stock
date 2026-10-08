@@ -1,0 +1,5 @@
+# Run Laravel scheduler every minute (handles all artisan schedules)
+* * * * * cd /var/www && /usr/local/bin/php artisan schedule:run > /dev/stdout 2>&1
+
+# Backup script - run at 12:00 AM and 12:00 PM local time (GMT+7)
+# 0 17 * * * /var/www/docker/scripts/backup.sh >> /var/www/backup/cron.log 2>&1

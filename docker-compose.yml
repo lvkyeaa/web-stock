@@ -1,0 +1,51 @@
+services:
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      target: prod
+    image: web-stock-image
+    container_name: web-stock-app
+    networks:
+      - laravel_network
+    ports:
+      - "8891:8000"
+      - "${VITE_DEV_SERVER_PORT}:${VITE_DEV_SERVER_PORT}"
+    entrypoint: ["supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+    volumes:
+      - ./docker/php/php-prod.ini:/usr/local/etc/php/php.ini
+      - ./docker/supervisor/laravel-workers-prod.conf:/etc/supervisor/conf.d/laravel-workers.conf
+      - ./backup:/var/www/backup
+      - storagedata:/var/www/storage/app
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    container_name: web-stock-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "3315:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+      - ./backup:/var/www/backup
+      - ./docker/mysql/my-prod.cnf:/etc/mysql/conf.d/my.cnf:ro
+    networks:
+      - laravel_network
+
+networks:
+  laravel_network:
+    driver: bridge
+
+volumes:
+  dbdata:
+    driver: local
+  storagedata:
+    driver: local
+  geojson:
+    driver: local

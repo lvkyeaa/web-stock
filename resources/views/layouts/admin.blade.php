@@ -10,7 +10,7 @@
         rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     {{-- 💡 AlpineJS untuk interaksi dropdown notifikasi --}}
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="{{ asset('vendor/alpinejs-3.17.4.min.js') }}"></script>
 </head>
 
 <body class="bg-bps-cream-bg font-[Plus_Jakarta_Sans] flex h-dvh overflow-hidden"

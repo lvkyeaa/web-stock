@@ -1,0 +1,80 @@
+[mysqld]
+# =========================
+# BASIC
+# =========================
+user                           = mysql
+port                           = 3306
+socket                         = /var/run/mysqld/mysqld.sock
+datadir                        = /var/lib/mysql
+pid-file                       = /var/run/mysqld/mysqld.pid
+
+# =========================
+# INNODB (MAIN MEMORY)
+# =========================
+innodb_buffer_pool_size        = 16G
+innodb_buffer_pool_instances   = 8
+
+innodb_flush_method            = O_DIRECT
+innodb_file_per_table          = 1
+
+# =========================
+# CONNECTIONS
+# =========================
+max_connections                = 300
+thread_cache_size              = 100
+
+# =========================
+# TEMP TABLES
+# =========================
+tmp_table_size                 = 256M
+max_heap_table_size            = 256M
+
+# =========================
+# PER-CONNECTION BUFFERS
+# (CONTROLLED!)
+# =========================
+sort_buffer_size               = 4M
+join_buffer_size               = 4M
+read_buffer_size               = 2M
+read_rnd_buffer_size           = 4M
+
+# =========================
+# LOGGING / DURABILITY
+# =========================
+innodb_log_file_size           = 1G
+innodb_log_buffer_size         = 128M
+innodb_flush_log_at_trx_commit = 1
+sync_binlog                    = 1
+
+# =========================
+# IO / CPU (16 CORES, SSD)
+# =========================
+innodb_io_capacity             = 2000
+innodb_io_capacity_max         = 4000
+innodb_read_io_threads         = 8
+innodb_write_io_threads        = 8
+
+# =========================
+# CACHES
+# =========================
+table_open_cache               = 4000
+table_definition_cache         = 5000
+open_files_limit               = 100000
+
+# =========================
+# PERFORMANCE
+# =========================
+performance_schema             = ON
+
+# =========================
+# LOGS
+# =========================
+slow_query_log                 = 1
+slow_query_log_file            = /var/log/mysql/mysql-slow.log
+long_query_time                = 1
+log_error                      = /var/log/mysql/error.log
+
+# =========================
+# SAFETY
+# =========================
+symbolic-links                 = 0
