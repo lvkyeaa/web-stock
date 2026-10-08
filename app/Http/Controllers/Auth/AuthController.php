@@ -11,8 +11,14 @@ use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
-    public function showLogin()
+    public function showLogin(Request $request)
     {
+        // ?next=/path: setelah login kembali ke halaman itu (mis. katalog). Hanya path di situs ini, bukan URL situs lain
+        $next = (string) $request->query('next');
+        if (str_starts_with($next, '/') && ! str_starts_with($next, '//') && ! str_contains($next, '\\')) {
+            $request->session()->put('url.intended', url($next));
+        }
+
         if (Auth::check()) {
             return $this->redirectByRole(Auth::user());
         }
@@ -67,11 +73,11 @@ class AuthController extends Controller
     private function redirectByRole(User $user)
     {
         if ($user->hasRole('admin')) {
-            return redirect()->route('admin.dashboard');
+            return redirect()->intended(route('admin.dashboard')); // halaman tujuan sebelum login jika ada
         }
 
         if ($user->hasRole('customer')) {
-            return redirect()->route('customer.dashboard');
+            return redirect()->intended(route('customer.dashboard'));
         }
 
         // Akun tanpa role tidak boleh tetap login (mencegah redirect berulang ke halaman login)

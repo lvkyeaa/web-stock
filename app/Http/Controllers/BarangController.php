@@ -30,10 +30,13 @@ class BarangController extends Controller
         return $this->katalog($request);
     }
 
-    // Katalog (kartu barang, tambah ke keranjang) untuk admin maupun customer
+    // Katalog (kartu barang, tambah ke keranjang) untuk admin maupun customer; tamu hanya melihat (tombol tambah → halaman masuk)
     public function katalog(Request $request)
     {
-        return view('customer.katalog.index', ['initial' => $this->kondisiAwal($request, 12, 'populer')]);
+        return view('customer.katalog.index', [
+            'initial' => $this->kondisiAwal($request, 12, 'populer'),
+            'isGuest' => ! $request->user(),
+        ]);
     }
 
     // Hanya kerangka halaman; daftar barang diambil lewat data() (JSON)
@@ -74,10 +77,22 @@ class BarangController extends Controller
             ->when($request->urut === 'populer_total', fn ($query) => $query->orderByDesc('diminta_total')->orderByDesc('diminta_90_hari')->orderBy('nama_barang'))
             ->when($request->urut === 'nama', fn ($query) => $query->orderBy('nama_barang'))
             ->when(! in_array($request->urut, ['populer', 'populer_total', 'nama'], true), fn ($query) => $query->latest())
-            ->paginate($request->integer('per_page') ?: ($request->user()->hasRole('admin') ? 10 : 12));
+            ->paginate($request->integer('per_page') ?: ($request->user()?->hasRole('admin') ? 10 : 12));
+
+        // Tamu (katalog publik): tanpa data internal (stok fisik, jumlah dipesan, boleh dihapus)
+        $isGuest = ! $request->user();
 
         return response()->json([
-            'data' => $barang->getCollection()->map(fn (Barang $item) => [
+            'data' => $barang->getCollection()->map(fn (Barang $item) => $isGuest ? [
+                'id'              => $item->id,
+                'stock_id'        => $item->stock_id,
+                'nama_barang'     => $item->nama_barang,
+                'tersedia'        => max(0, $item->tersedia),
+                'satuan'          => $item->satuan,
+                'foto_url'        => $item->foto_url,
+                'diminta_90_hari' => $item->diminta_90_hari,
+                'diminta_total'   => $item->diminta_total,
+            ] : [
                 'id'          => $item->id,
                 'stock_id'    => $item->stock_id,
                 'nama_barang' => $item->nama_barang,

@@ -25,7 +25,7 @@
                 </div>
                 <div class="min-w-0">
                     <p class="text-[11px] font-bold text-bps-orange uppercase tracking-[0.01em] leading-tight truncate">BPS Provinsi Jawa Timur</p>
-                    <p class="text-[10px] font-medium leading-tight text-slate-500 mt-0.5 truncate">Jadwal Peminjaman Fasilitas</p>
+                    <p class="text-[10px] font-medium leading-tight text-slate-500 mt-0.5 truncate">@yield('subtitle', 'Jadwal Peminjaman Fasilitas')</p>
                 </div>
             </div>
 

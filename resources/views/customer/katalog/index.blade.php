@@ -1,5 +1,6 @@
-@extends(auth()->user()->hasRole('admin') ? 'layouts.admin' : 'layouts.customer')
+@extends($isGuest ? 'layouts.public' : (auth()->user()->hasRole('admin') ? 'layouts.admin' : 'layouts.customer'))
 @section('title', 'Katalog Persediaan')
+@section('subtitle', 'Katalog Persediaan')
 
 @section('content')
     @include('barang.partials.list-script')
@@ -26,10 +27,11 @@
                 </div>
                 <div>
                     <h2 class="text-xl font-semibold tracking-tight text-gray-900">Katalog Persediaan</h2>
-                    <p class="text-sm text-gray-500">Pilih dan tambahkan persediaan ke keranjang pengajuanmu.</p>
+                    <p class="text-sm text-gray-500">{{ $isGuest ? 'Masuk untuk mengajukan persediaan.' : 'Pilih dan tambahkan persediaan ke keranjang pengajuanmu.' }}</p>
                 </div>
             </div>
 
+            @unless($isGuest)
             <a href="{{ route('keranjang.index') }}"
                 x-data="{ jumlah: {{ auth()->user()->jumlahKeranjang() }} }" @keranjang-diperbarui.window="jumlah = $event.detail.jumlah"
                 class="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-[0_8px_24px_-12px_rgba(0,61,130,0.8)]">
@@ -40,6 +42,7 @@
                 <span x-show="jumlah > 0" x-text="jumlah > 99 ? '99+' : jumlah"
                     class="bg-white text-bps-blue-dark text-[11px] min-w-5 px-1.5 py-0.5 rounded-full font-bold ml-1 shadow-sm text-center"></span>
             </a>
+            @endunless
         </div>
 
         {{-- FORM PENCARIAN --}}
@@ -140,6 +143,16 @@
                                 </p>
                             </div>
 
+                            @if($isGuest)
+                            <a x-show="item.tersedia > 0" href="{{ route('login', ['next' => '/barang/katalog']) }}"
+                                :aria-label="`Masuk untuk menambahkan ${item.nama_barang} ke keranjang`"
+                                class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-bps-orange px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-bps-orange-hover active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-bps-orange/40 focus-visible:ring-offset-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                                </svg>
+                                Masuk untuk Tambah
+                            </a>
+                            @else
                             <button x-show="item.tersedia > 0" type="button"
                                 @click="openAjukanModal(item.id, item.nama_barang, item.tersedia, item.satuan, item.foto_url)"
                                 :aria-label="`Tambah ${item.nama_barang} ke keranjang`"
@@ -149,6 +162,7 @@
                                 </svg>
                                 Tambah
                             </button>
+                            @endif
                             <button x-show="item.tersedia <= 0" type="button" disabled
                                 class="inline-flex shrink-0 items-center justify-center rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-semibold text-slate-400 cursor-not-allowed">
                                 Stok Habis
@@ -169,5 +183,7 @@
         @include('barang.partials.pagination')
     </div>
 
-    @include('barang.partials.tambah-keranjang')
+    @unless($isGuest)
+        @include('barang.partials.tambah-keranjang')
+    @endunless
 @endsection

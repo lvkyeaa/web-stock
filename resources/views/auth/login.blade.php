@@ -60,12 +60,18 @@
 
         {{-- 💡 TOMBOL PORTAL MONITORING YANG DISEMBUNYIKAN DI SINI --}}
         <div class="text-center pt-4 border-t border-slate-100 flex flex-col gap-2">
-            <p class="text-[11px] text-slate-400 font-medium">Butuh melihat jadwal monitoring?</p>
+            <p class="text-[11px] text-slate-400 font-medium">Lihat tanpa masuk:</p>
             <a href="{{ route('peminjaman.index') }}" class="w-full py-2.5 border border-slate-200 hover:border-bps-orange hover:bg-bps-orange/5 text-slate-600 hover:text-bps-orange text-xs font-bold rounded-xl transition-all duration-150 flex items-center justify-center gap-2 shadow-sm">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                 </svg>
                 Lihat Jadwal Fasilitas
+            </a>
+            <a href="{{ route('barang.katalog') }}" class="w-full py-2.5 border border-slate-200 hover:border-bps-orange hover:bg-bps-orange/5 text-slate-600 hover:text-bps-orange text-xs font-bold rounded-xl transition-all duration-150 flex items-center justify-center gap-2 shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
+                Lihat Katalog Persediaan
             </a>
         </div>
 

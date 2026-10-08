@@ -35,11 +35,15 @@ foreach (['monitoring', 'admin/peminjaman', 'customer/peminjaman'] as $urlLama) 
 }
 
 // ─── 📦 BARANG & STOK — SATU ROUTE UNTUK SEMUA PERAN ───
+// Katalog & daftar persediaan bisa dilihat tanpa login (tamu: tanpa keranjang, tombol tambah diganti tombol masuk)
+Route::prefix('barang')->name('barang.')->group(function () {
+    Route::get('/data', [BarangController::class, 'data'])->name('data');
+    Route::get('/katalog', [BarangController::class, 'katalog'])->name('katalog');
+});
+
 // Admin: kelola barang & stok (+ katalog di /barang/katalog); customer: katalog (pilih barang ke keranjang)
 Route::prefix('barang')->name('barang.')->middleware(['auth', 'role:admin|customer'])->group(function () {
     Route::get('/', [BarangController::class, 'index'])->name('index');
-    Route::get('/data', [BarangController::class, 'data'])->name('data');
-    Route::get('/katalog', [BarangController::class, 'katalog'])->name('katalog');
 
     Route::middleware('role:admin')->group(function () {
         Route::post('/', [BarangController::class, 'store'])->name('store');
