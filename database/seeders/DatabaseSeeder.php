@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
                 TeamSeeder::class,
                 FacilityTypeSeeder::class,
                 FacilitySeeder::class,
+                ProductionUserSeeder::class,
             ]);
 
             return;

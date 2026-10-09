@@ -28,3 +28,4 @@ docker-compose.override.yml
 
 frankenphp
 frankenphp-worker.php
+database/data/user_production.csv
