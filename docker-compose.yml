@@ -9,7 +9,7 @@ services:
     networks:
       - laravel_network
     ports:
-      - "8891:8000"
+      - "8900:8000"
       - "${VITE_DEV_SERVER_PORT}:${VITE_DEV_SERVER_PORT}"
     entrypoint: ["supervisord", "-c", "/etc/supervisor/supervisord.conf"]
     volumes:
@@ -30,7 +30,7 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD}
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "3315:3306"
+      - "3321:3306"
     volumes:
       - dbdata:/var/lib/mysql
       - ./backup:/var/www/backup
