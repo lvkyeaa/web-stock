@@ -127,14 +127,44 @@
                         </select>
                     </div>
                     <div>
-                        <label for="tambah_user_id" class="block text-sm font-semibold text-gray-700 mb-1.5">Ketua Tim/Penanggung Jawab</label>
-                        <select id="tambah_user_id" x-model="tambah.user_id" required
-                            class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue bg-white">
-                            <option value="">-- Pilih Pegawai --</option>
-                            <template x-for="user in users" :key="user.id">
-                                <option :value="user.id" x-text="`${user.name} (${user.username})`"></option>
-                            </template>
-                        </select>
+                        <label for="tambah_cari_pegawai" class="block text-sm font-semibold text-gray-700 mb-1.5">Ketua Tim/Penanggung Jawab</label>
+
+                        {{-- Pegawai terpilih --}}
+                        <div x-show="pegawaiTerpilih" class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-bps-blue/30 bg-bps-blue/5">
+                            <span class="min-w-0">
+                                <span class="block text-sm font-semibold text-gray-900 truncate" x-text="pegawaiTerpilih?.name"></span>
+                                <span class="block text-xs text-gray-500 truncate" x-text="pegawaiTerpilih?.username"></span>
+                            </span>
+                            <button type="button" @click="gantiPegawai()" class="shrink-0 text-xs font-semibold text-bps-blue hover:underline cursor-pointer">Ganti</button>
+                        </div>
+
+                        {{-- Kolom cari + daftar pegawai (disaring di browser, tanpa request) --}}
+                        <div x-show="!pegawaiTerpilih">
+                            <div class="relative">
+                                <input id="tambah_cari_pegawai" type="text" x-ref="cariPegawai" x-model="tambah.cari" autocomplete="off"
+                                    @input="tambah.aktif = 0"
+                                    @keydown.arrow-down.prevent="gerakPegawai(1)" @keydown.arrow-up.prevent="gerakPegawai(-1)"
+                                    @keydown.enter.prevent="pilihPegawai(pegawaiTersaring[tambah.aktif])"
+                                    role="combobox" aria-autocomplete="list" aria-controls="daftarPegawai" aria-expanded="true"
+                                    placeholder="Ketik nama atau username pegawai..."
+                                    class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            <ul id="daftarPegawai" x-ref="daftarPegawai" role="listbox" class="mt-2 h-60 overflow-y-auto py-1 rounded-xl border border-gray-200">
+                                <template x-for="(user, i) in pegawaiTersaring" :key="user.id">
+                                    <li role="option" :aria-selected="(i === tambah.aktif).toString()" @click="pilihPegawai(user)" @mouseenter="tambah.aktif = i"
+                                        class="px-4 py-2 cursor-pointer" :class="i === tambah.aktif && 'bg-bps-blue/5'">
+                                        <span class="block text-sm text-gray-800 truncate" x-text="user.name"></span>
+                                        <span class="block text-xs text-gray-400 truncate" x-text="user.username"></span>
+                                    </li>
+                                </template>
+                                <li x-show="!pegawaiTersaring.length" class="h-full flex items-center justify-center px-4 text-sm text-gray-400">Pegawai tidak ditemukan.</li>
+                            </ul>
+                        </div>
                     </div>
                     <p x-show="tambah.error" x-cloak role="alert" class="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700" x-text="tambah.error"></p>
                     <div class="flex gap-3 pt-2">
@@ -206,7 +236,7 @@
                 page: config.page,
                 loading: true,
                 error: '',
-                tambah: { open: false, team_id: '', user_id: '', saving: false, error: '' },
+                tambah: { open: false, team_id: '', user_id: '', cari: '', aktif: 0, saving: false, error: '' },
                 hapus: { item: null, saving: false, error: '' },
                 pesanList: [],
 
@@ -285,7 +315,34 @@
 
                 // Tim di form tambah mengikuti filter tim yang sedang aktif
                 bukaTambah() {
-                    this.tambah = { open: true, team_id: this.filters.team_id, user_id: '', saving: false, error: '' };
+                    this.tambah = { open: true, team_id: this.filters.team_id, user_id: '', cari: '', aktif: 0, saving: false, error: '' };
+                },
+
+                // Pegawai yang namanya / username-nya memuat kata yang diketik
+                get pegawaiTersaring() {
+                    const kata = this.tambah.cari.trim().toLowerCase();
+                    if (!kata) return this.users;
+                    return this.users.filter(u => u.name.toLowerCase().includes(kata) || u.username.toLowerCase().includes(kata));
+                },
+
+                get pegawaiTerpilih() {
+                    return this.users.find(u => u.id === this.tambah.user_id) ?? null;
+                },
+
+                gerakPegawai(arah) {
+                    const jumlah = this.pegawaiTersaring.length;
+                    if (!jumlah) return;
+                    this.tambah.aktif = (this.tambah.aktif + arah + jumlah) % jumlah;
+                    this.$nextTick(() => this.$refs.daftarPegawai.children[this.tambah.aktif + 1]?.scrollIntoView({ block: 'nearest' }));
+                },
+
+                pilihPegawai(user) {
+                    if (user) this.tambah.user_id = user.id;
+                },
+
+                gantiPegawai() {
+                    this.tambah.user_id = '';
+                    this.$nextTick(() => this.$refs.cariPegawai.focus());
                 },
 
                 async simpan() {

@@ -132,7 +132,7 @@
 
     {{-- BAGIAN / FUNGSI --}}
     <div class="bagian-info">
-        Bagian / Fungsi : <strong>{{ $pengajuan->user->name ?? $pengajuan->user->username ?? '-' }}</strong>
+        Bagian / Fungsi : <strong>{{ $pengajuan->team->name ?? '-' }}</strong>
     </div>
 
     {{-- TABEL BARANG --}}
