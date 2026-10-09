@@ -14,6 +14,19 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(AdminSeeder::class);
+
+        // Production: tanpa data contoh (user, ketua tim, booking, barang, riwayat)
+        if (app()->isProduction()) {
+            $this->call([
+                TeamSeeder::class,
+                FacilityTypeSeeder::class,
+                FacilitySeeder::class,
+            ]);
+
+            return;
+        }
+
         $this->call([
             TeamSeeder::class,
             UserSeeder::class,

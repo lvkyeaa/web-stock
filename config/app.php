@@ -123,4 +123,7 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    // Password awal akun admin@mail.com (dipakai AdminSeeder)
+    'first_admin_password' => env('FIRST_ADMIN_PASSWORD'),
+
 ];
