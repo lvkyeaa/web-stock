@@ -43,4 +43,11 @@ return [
         'realms' => env('KEYCLOAK_REALM'),
     ],
 
+    // Asisten AI lewat 9router (API kompatibel OpenAI). url = alamat dasar sampai /v1, contoh http://localhost:20128/v1
+    'ai' => [
+        'url' => env('AI_SERVER_URL'),
+        'key' => env('AI_SERVER_CREDENTIAL'),
+        'model' => env('AI_SERVER_MODEL'),
+    ],
+
 ];

@@ -29,7 +29,7 @@ class BookingController extends Controller
         // Daftar fasilitas per kode jenis untuk dropdown form
         $facilities = Facility::with('facilityType')->orderBy('name')->get()
             ->groupBy(fn($facility) => $facility->facilityType->code)
-            ->map(fn($group) => $group->map->only(['id', 'name'])->values());
+            ->map(fn($group) => $group->map->only(['id', 'name', 'capacity'])->values());
 
         // Kondisi awal tampilan dari query string (agar posisi tetap saat reload / dari tautan notifikasi)
         $initial = [
@@ -48,6 +48,28 @@ class BookingController extends Controller
             'initial'    => $initial,
             'isAdmin'    => $isAdmin,
             'isGuest'    => $isGuest,
+        ]);
+    }
+
+    // Halaman khusus buat peminjaman (selain modal di halaman kalender); disimpan lewat store()
+    public function create()
+    {
+        $types = FacilityType::orderBy('name')->get();
+
+        // Daftar fasilitas per kode jenis untuk dropdown form
+        $facilities = Facility::with('facilityType')->orderBy('name')->get()
+            ->groupBy(fn($facility) => $facility->facilityType->code)
+            ->map(fn($group) => $group->map->only(['id', 'name', 'capacity'])->values());
+
+        // Jenis awal: dari fasilitas yang dipilih sebelumnya (gagal validasi), atau jenis saja dari Asisten AI (fasilitas belum dipilih)
+        $oldType = Facility::with('facilityType')->find(old('facility_request_id'))?->facilityType->code
+            ?? ($types->contains('code', old('jenis')) ? old('jenis') : null);
+
+        return view('peminjaman.buat', [
+            'types'      => $types,
+            'facilities' => $facilities,
+            'oldType'    => $oldType,
+            'isAdmin'    => User::find(Auth::id())->hasRole('admin'),
         ]);
     }
 
@@ -104,6 +126,10 @@ class BookingController extends Controller
                 'start_label' => $item->waktu_mulai->tanggalJam(),
                 'end_label'   => $item->waktu_selesai->tanggalJam(),
                 'keperluan'   => $item->keperluan,
+                // Detail ruang rapat (null / false untuk jenis lain)
+                'jumlah_peserta'     => $item->jumlah_peserta,
+                'butuh_sound_system' => $item->butuh_sound_system,
+                'butuh_konsumsi'     => $item->butuh_konsumsi,
                 'status'      => $item->status,
                 'style'       => $item->statusStyle(), // warna sama untuk item kalender & badge daftar
                 'status_url'  => $isAdmin ? route('peminjaman.update-status', $item->id) : null,
@@ -118,6 +144,9 @@ class BookingController extends Controller
                     'waktu_mulai' => $item->waktu_mulai->format('Y-m-d\TH:i'),
                     'waktu_selesai' => $item->waktu_selesai->format('Y-m-d\TH:i'),
                     'keperluan'   => $item->keperluan,
+                    'jumlah_peserta'     => $item->jumlah_peserta,
+                    'butuh_sound_system' => $item->butuh_sound_system,
+                    'butuh_konsumsi'     => $item->butuh_konsumsi,
                 ],
             ]);
 
@@ -126,7 +155,7 @@ class BookingController extends Controller
 
     public function store(Request $request)
     {
-        $this->validasiPeminjaman($request);
+        $detailRuang = $this->validasiPeminjaman($request);
 
         $konflik = $this->bentrokDengan($request->facility_request_id, $request->waktu_mulai, $request->waktu_selesai);
         if ($konflik->isNotEmpty()) {
@@ -146,7 +175,7 @@ class BookingController extends Controller
                 'waktu_selesai' => $request->waktu_selesai,
                 'keperluan' => $request->keperluan,
                 'status' => $isAdmin ? 'disetujui' : 'pending',
-            ]);
+            ] + $detailRuang);
 
             // PICU NOTIFIKASI KE ADMIN (hanya untuk pengajuan customer)
             if (!$isAdmin) {
@@ -193,6 +222,12 @@ class BookingController extends Controller
                 return $this->gagalUbahStatus($request, 'Fasilitas yang diberikan harus sejenis dengan fasilitas yang diminta.');
             }
 
+            // Ruangan yang diberikan harus muat untuk seluruh peserta (kapasitas kosong = tidak dibatasi)
+            $diberikan = Facility::find($facilityId);
+            if ($diberikan->capacity && $peminjaman->jumlah_peserta > $diberikan->capacity) {
+                return $this->gagalUbahStatus($request, "Kapasitas {$diberikan->name} hanya {$diberikan->capacity} orang, sedangkan peserta {$peminjaman->jumlah_peserta} orang.");
+            }
+
             // Bentrok: pesan & daftar peminjaman yang bentrok ditampilkan di dialog persetujuan (di bawah pilihan fasilitas)
             $konflik = $this->bentrokDengan($facilityId, $peminjaman->waktu_mulai, $peminjaman->waktu_selesai, $peminjaman->id);
             if ($konflik->isNotEmpty()) {
@@ -234,7 +269,7 @@ class BookingController extends Controller
 
         abort_unless($this->bisaDiedit($peminjaman), 403, 'Peminjaman ini tidak dapat diubah.');
 
-        $this->validasiPeminjaman($request);
+        $detailRuang = $this->validasiPeminjaman($request);
 
         $konflik = $this->bentrokDengan($request->facility_request_id, $request->waktu_mulai, $request->waktu_selesai);
         if ($konflik->isNotEmpty()) {
@@ -250,7 +285,7 @@ class BookingController extends Controller
             'waktu_selesai' => $request->waktu_selesai,
             'keperluan' => $request->keperluan,
             'status' => $isAdmin ? 'disetujui' : 'pending',
-        ]);
+        ] + $detailRuang);
 
         if ($isAdmin) {
             return $this->berhasil($request, 'Perubahan peminjaman berhasil disimpan dan disetujui.');
@@ -283,10 +318,23 @@ class BookingController extends Controller
         return $peminjaman->user_id === Auth::id() && in_array($peminjaman->status, ['pending', 'ditolak']);
     }
 
-    private function validasiPeminjaman(Request $request): void
+    // Mengembalikan detail ruang rapat untuk disimpan (dikosongkan untuk jenis fasilitas lain)
+    private function validasiPeminjaman(Request $request): array
     {
+        $facility = Facility::with('facilityType')->find($request->facility_request_id);
+        $isRuang = $facility?->facilityType->code === 'room';
+
+        // Ruang rapat: jumlah peserta wajib dan tidak boleh melebihi kapasitas ruangan
+        // (kapasitas kosong = hanya dibatasi batas kolom database)
+        $maksPeserta = $facility?->capacity ?: Peminjaman::MAKS_PESERTA;
+        $aturanRuang = $isRuang ? [
+            'jumlah_peserta' => ['required', 'integer', 'min:1', 'max:' . $maksPeserta],
+            'butuh_sound_system' => 'nullable|boolean',
+            'butuh_konsumsi' => 'nullable|boolean',
+        ] : [];
+
         // Tanggal mulai tidak boleh sebelum hari ini menurut server (jam diabaikan; zona waktu aplikasi: config app.timezone)
-        $request->validate([
+        $request->validate($aturanRuang + [
             'facility_request_id' => 'required|exists:facilities,id',
             'waktu_mulai' => 'required|date|after_or_equal:today',
             'waktu_selesai' => [
@@ -305,7 +353,18 @@ class BookingController extends Controller
         ], [
             'keperluan.required' => 'Keperluan wajib diisi.',
             'waktu_mulai.after_or_equal' => 'Tanggal mulai tidak boleh sebelum hari ini.',
+            'jumlah_peserta.required' => 'Jumlah peserta wajib diisi.',
+            'jumlah_peserta.min' => 'Jumlah peserta minimal 1 orang.',
+            'jumlah_peserta.max' => $facility?->capacity
+                ? 'Kapasitas ' . $facility->name . ' hanya :max orang.'
+                : 'Jumlah peserta maksimal :max orang.',
         ]);
+
+        return [
+            'jumlah_peserta' => $isRuang ? (int) $request->jumlah_peserta : null,
+            'butuh_sound_system' => $isRuang && $request->boolean('butuh_sound_system'),
+            'butuh_konsumsi' => $isRuang && $request->boolean('butuh_konsumsi'),
+        ];
     }
 
     // Cek Bentrok Jadwal dengan peminjaman yang sudah disetujui pada fasilitas yang diberikan.

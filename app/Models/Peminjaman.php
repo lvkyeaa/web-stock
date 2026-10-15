@@ -14,6 +14,9 @@ class Peminjaman extends Model
     // 💡 Mengatasi error: Mengunci nama tabel agar Laravel tidak mencari 'peminjamen'
     protected $table = 'peminjamans';
 
+    // Batas kolom jumlah_peserta (unsigned smallint); nilai lebih besar ditolak database
+    public const MAKS_PESERTA = 65535;
+
     protected $fillable = [
         'user_id',
         'facility_request_id',
@@ -21,6 +24,9 @@ class Peminjaman extends Model
         'waktu_mulai',
         'waktu_selesai',
         'keperluan',
+        'jumlah_peserta',
+        'butuh_sound_system',
+        'butuh_konsumsi',
         'status'
     ];
 
@@ -28,6 +34,8 @@ class Peminjaman extends Model
     protected $casts = [
         'waktu_mulai' => 'datetime',
         'waktu_selesai' => 'datetime',
+        'butuh_sound_system' => 'boolean',
+        'butuh_konsumsi' => 'boolean',
     ];
 
     public function user()

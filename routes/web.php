@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Admin;
+use App\Http\Controllers\AIController;
 use App\Http\Controllers\Customer;
 use App\Http\Controllers\BarangController;
 use App\Http\Controllers\BookingController;
@@ -28,6 +29,7 @@ Route::prefix('peminjaman')->name('peminjaman.')->group(function () {
     Route::get('/data', [BookingController::class, 'data'])->name('data');
 
     Route::middleware(['auth', 'role:admin|customer'])->group(function () {
+        Route::get('/buat', [BookingController::class, 'create'])->name('create');
         Route::post('/', [BookingController::class, 'store'])->name('store');
         Route::put('/{id}', [BookingController::class, 'update'])->name('update');
         Route::delete('/{id}', [BookingController::class, 'destroy'])->name('destroy');
@@ -93,6 +95,13 @@ foreach (['admin/transaksi', 'customer/pengajuan', 'customer/riwayat-pengajuan']
 }
 Route::get('customer/keranjang', fn () => redirect()->route('keranjang.index'));
 
+// ─── 🤖 ASISTEN AI: kalimat → formulir peminjaman / isi keranjang (dashboard, halaman peminjaman, katalog) ───
+Route::prefix('asisten-ai')->name('asisten-ai.')->middleware(['auth', 'role:admin|customer'])->group(function () {
+    Route::post('/', [AIController::class, 'process'])->middleware('throttle:10,1')->name('process');
+    Route::get('/persediaan', [AIController::class, 'supplies'])->name('supplies');
+    Route::post('/persediaan', [AIController::class, 'apply'])->name('apply');
+});
+
 
 // ─── 👨‍💼 ADMIN ROUTES ────────────────────────────────────────────────
 Route::prefix('admin')
@@ -119,6 +128,15 @@ Route::prefix('admin')
             Route::post('/', [Admin\ManajemenUserController::class, 'store'])->name('store');
             Route::put('/{id}', [Admin\ManajemenUserController::class, 'update'])->name('update');
             Route::delete('/{user}', [Admin\ManajemenUserController::class, 'destroy'])->name('destroy');
+        });
+
+        // 🏢 KELOLA FASILITAS (mobil, ruang rapat, Zoom): halaman + API JSON
+        Route::prefix('fasilitas')->name('fasilitas.')->group(function () {
+            Route::get('/', [Admin\FacilityController::class, 'index'])->name('index');
+            Route::get('/data', [Admin\FacilityController::class, 'data'])->name('data');
+            Route::post('/', [Admin\FacilityController::class, 'store'])->name('store');
+            Route::put('/{facility}', [Admin\FacilityController::class, 'update'])->name('update');
+            Route::delete('/{facility}', [Admin\FacilityController::class, 'destroy'])->name('destroy');
         });
 
     });

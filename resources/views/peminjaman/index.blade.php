@@ -37,6 +37,12 @@
                         Masuk untuk meminjam
                     </a>
                 @else
+                <div class="flex flex-wrap items-center gap-2">
+                <button type="button" @click="$dispatch('buka-asisten-ai')"
+                    class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-bps-orange to-bps-blue hover:brightness-110 text-white transition shadow-[0_8px_24px_-12px_rgba(244,121,32,0.8)] cursor-pointer">
+                    @include('partials.asisten-ai.ikon', ['class' => 'w-4 h-4'])
+                    Pinjam dengan AI
+                </button>
                 <button type="button" @click="$dispatch('open-booking-modal')"
                     class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white transition shadow-[0_8px_24px_-12px_rgba(0,61,130,0.8)] cursor-pointer">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,6 +50,7 @@
                     </svg>
                     Buat Peminjaman
                 </button>
+                </div>
                 @endif
             </div>
         </div>
@@ -355,6 +362,15 @@
                         <dd class="font-medium text-gray-800" x-text="selected.end_label"></dd>
                         <dt class="text-gray-500">Keperluan</dt>
                         <dd class="font-medium text-gray-800 break-words whitespace-pre-line" x-text="selected.keperluan || '-'"></dd>
+                        {{-- Detail ruang rapat; "contents" agar dt/dd tetap ikut grid --}}
+                        <template x-if="selected.type.code === 'room'">
+                            <div class="contents">
+                                <dt class="text-gray-500">Peserta</dt>
+                                <dd class="font-medium text-gray-800" x-text="selected.jumlah_peserta ? selected.jumlah_peserta + ' orang' : '-'"></dd>
+                                <dt class="text-gray-500">Kebutuhan</dt>
+                                <dd class="font-medium text-gray-800" x-text="kebutuhanRuang(selected)"></dd>
+                            </div>
+                        </template>
                     </dl>
 
                     @if($isAdmin)
@@ -365,7 +381,7 @@
                                     class="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:border-bps-blue focus:ring-4 focus:ring-bps-blue/10 cursor-pointer">
                                     <template x-for="f in (config.facilities[selected.type.code] || [])" :key="f.id">
                                         <option :value="f.id" :selected="f.id === assignFacilityId"
-                                            x-text="f.name + (f.id === selected.requested_facility.id ? ' (diminta)' : '')"></option>
+                                            x-text="f.name + (f.capacity ? ` · ${f.capacity} orang` : '') + (f.id === selected.requested_facility.id ? ' (diminta)' : '')"></option>
                                     </template>
                                 </select>
                                 <p class="text-[11px] text-gray-400 mt-1">Pilih fasilitas yang sama atau fasilitas lain yang sejenis. Keputusan dapat diubah kembali.</p>
@@ -519,12 +535,12 @@
                     {{-- 1. PILIH MOBIL / RUANGAN --}}
                     <div>
                         <label class="block text-xs font-bold text-slate-700 uppercase mb-1" x-text="jenis === 'car' ? 'Mobil (Plat Nomor)' : 'Ruangan'"></label>
-                        <select name="facility_request_id" required @change="clearError('facility_request_id')"
+                        <select name="facility_request_id" required @change="oldItem = $event.target.value; clearError('facility_request_id')"
                             :class="errors.facility_request_id ? 'border-red-500' : 'border-slate-200'"
                             class="w-full px-3 py-2.5 bg-white border rounded-xl text-sm text-slate-800 focus:outline-none focus:border-bps-blue focus:ring-4 focus:ring-bps-blue/10 transition-all cursor-pointer">
                             <option value="" disabled :selected="!(items[jenis] || []).some(f => f.id === oldItem)" x-text="jenis === 'car' ? '— Pilih Mobil —' : '— Pilih Ruangan —'"></option>
                             <template x-for="facility in items[jenis] || []" :key="facility.id">
-                                <option :value="facility.id" x-text="facility.name" :selected="facility.id === oldItem"></option>
+                                <option :value="facility.id" x-text="facility.name + (facility.capacity ? ` (kapasitas ${facility.capacity} orang)` : '')" :selected="facility.id === oldItem"></option>
                             </template>
                         </select>
                         <span x-show="errors.facility_request_id" x-text="errors.facility_request_id && errors.facility_request_id[0]" class="text-xs text-red-500 font-semibold mt-1 block"></span>
@@ -572,6 +588,31 @@
                         <span x-show="errors.keperluan" x-text="errors.keperluan && errors.keperluan[0]" class="text-xs text-red-500 font-semibold mt-1 block"></span>
                     </div>
 
+                    {{-- 5. DETAIL RUANG RAPAT (hanya jenis ruang rapat) --}}
+                    <template x-if="jenis === 'room'">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Jumlah Peserta</label>
+                                <input type="number" name="jumlah_peserta" min="1" :max="kapasitas || @js(\App\Models\Peminjaman::MAKS_PESERTA)" required x-model="jumlahPeserta" @input="clearError('jumlah_peserta')" placeholder="Contoh: 20"
+                                    :class="errors.jumlah_peserta ? 'border-red-500' : 'border-gray-300'"
+                                    class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:border-bps-blue focus:ring-4 focus:ring-bps-blue/10">
+                                <span x-show="errors.jumlah_peserta" x-text="errors.jumlah_peserta && errors.jumlah_peserta[0]" class="text-xs text-red-500 font-semibold mt-1 block"></span>
+                                <p x-show="kapasitas && Number(jumlahPeserta) > kapasitas" x-cloak class="text-xs text-amber-600 font-semibold mt-1"
+                                    x-text="`Melebihi kapasitas ruangan (${kapasitas} orang).`"></p>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                    <input type="checkbox" name="butuh_sound_system" value="1" x-model="butuhSoundSystem" class="w-4 h-4 rounded accent-bps-blue">
+                                    Butuh pengaturan sound system
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                    <input type="checkbox" name="butuh_konsumsi" value="1" x-model="butuhKonsumsi" class="w-4 h-4 rounded accent-bps-blue">
+                                    Butuh konsumsi
+                                </label>
+                            </div>
+                        </div>
+                    </template>
+
                     <div class="flex gap-2">
                         <button type="button" @click="jenis = ''; resetErrors()"
                             class="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition cursor-pointer">
@@ -585,6 +626,18 @@
             </template>
         </div>
     </div>
+
+    @include('partials.asisten-ai.modal', [
+        'konteks' => 'peminjaman',
+        'judul' => 'Pinjam dengan AI',
+        'keterangan' => 'Tulis fasilitas, tanggal, jam, dan keperluan Anda dalam satu kalimat.',
+        'placeholder' => 'Contoh: "Pinjam ruang rapat lantai 2 besok jam 9–11 untuk rapat koordinasi"',
+        'contoh' => [
+            'Pinjam mobil dinas Senin depan ke Malang',
+            'Pesan Zoom kantor Jumat jam 13.00–15.00',
+            'Ruang rapat besar Rabu pagi untuk 20 orang',
+        ],
+    ])
     @endunless
 </div>
 
@@ -599,6 +652,11 @@
     const statusLabel = { pending: 'Menunggu', disetujui: 'Disetujui', ditolak: 'Ditolak' };
     const statusIcons = @json($statusIcons);
 
+    // Kebutuhan tambahan peminjaman ruang rapat, contoh: "Sound system, Konsumsi"
+    function kebutuhanRuang(b) {
+        return [b.butuh_sound_system && 'Sound system', b.butuh_konsumsi && 'Konsumsi'].filter(Boolean).join(', ') || 'Tidak ada';
+    }
+
     function statusIcon(status) {
         return `<svg class="booking-status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="${statusIcons[status]}"/></svg>`;
     }
@@ -610,10 +668,13 @@
             jenis: '',
             items: config.facilities,
             types: config.types,
-            oldItem: '',      // fasilitas yang dipilih saat form dibuka (mode edit)
+            oldItem: '',      // fasilitas yang dipilih (awalnya: milik peminjaman yang diedit)
             mulai: '',
             selesai: '',
             keperluan: '',
+            jumlahPeserta: '', // detail ruang rapat
+            butuhSoundSystem: false,
+            butuhKonsumsi: false,
             editUrl: null,    // terisi = mode edit
             minMulai: '',     // batas minimal waktu mulai = hari ini 00:00 menurut tanggal server (jam tidak dibatasi)
             selisihJam: config.serverNow - Date.now(), // koreksi jika jam perangkat berbeda dengan server
@@ -621,6 +682,14 @@
             errors: {},       // { field: [pesan] } dari validasi server
             conflicts: [],    // peminjaman disetujui yang bentrok
             formError: '',
+
+            // Fasilitas yang sedang dipilih & kapasitasnya (hanya ruang rapat yang punya kapasitas)
+            get fasilitasTerpilih() {
+                return (this.items[this.jenis] || []).find(f => f.id === this.oldItem) ?? null;
+            },
+            get kapasitas() {
+                return this.fasilitasTerpilih?.capacity ?? null;
+            },
 
             // detail kosong = buat baru; detail.booking = edit peminjaman yang ada
             openForm(detail) {
@@ -631,6 +700,9 @@
                 this.mulai = b ? b.waktu_mulai : '';
                 this.selesai = b ? b.waktu_selesai : '';
                 this.keperluan = b ? (b.keperluan || '') : '';
+                this.jumlahPeserta = b ? (b.jumlah_peserta || '') : '';
+                this.butuhSoundSystem = b ? b.butuh_sound_system : false;
+                this.butuhKonsumsi = b ? b.butuh_konsumsi : false;
                 this.minMulai = this.serverToday() + 'T00:00';
                 this.resetErrors();
                 this.open = true;
@@ -831,6 +903,10 @@
                             ['Pemohon', b.user],
                             ['Status', statusLabel[b.status] || b.status],
                             ['Keperluan', b.keperluan || '-'],
+                            ...(b.type.code === 'room' ? [
+                                ['Peserta', b.jumlah_peserta ? b.jumlah_peserta + ' orang' : '-'],
+                                ['Kebutuhan', kebutuhanRuang(b)],
+                            ] : []),
                         ].forEach(([label, value]) => {
                             const row = document.createElement('p');
                             row.className = 'text-[11px] leading-relaxed text-slate-700 font-medium whitespace-normal break-words';

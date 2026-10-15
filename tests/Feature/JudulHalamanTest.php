@@ -34,6 +34,7 @@ class JudulHalamanTest extends TestCase
             'peminjaman.index'           => 'Peminjaman',
             'barang.index'               => 'Persediaan & Stok',
             'pengajuan.index'            => 'Persetujuan Pengajuan Persediaan',
+            'admin.fasilitas.index'      => 'Fasilitas',
             'admin.manajemen-user.index' => 'Pengguna',
         ] as $route => $judul) {
             $this->actingAs($admin)->get(route($route))

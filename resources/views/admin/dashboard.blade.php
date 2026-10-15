@@ -43,6 +43,8 @@
             ? "Ada {$stats['pending']} pengajuan persediaan dan {$peminjamanStats['pending']} peminjaman fasilitas yang menunggu keputusan Anda."
             : 'Semua pengajuan dan peminjaman sudah ditangani. Berikut ringkasan operasional hari ini.'])
 
+        @include('partials.asisten-ai.kartu-dashboard')
+
         {{-- Statistik --}}
         @foreach ($bagian as $judul => $kartu)
             <div>

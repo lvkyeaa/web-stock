@@ -32,6 +32,12 @@
             </div>
 
             @unless($isGuest)
+            <div class="flex flex-wrap items-center gap-2">
+            <button type="button" @click="$dispatch('buka-asisten-ai')"
+                class="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-bps-orange to-bps-blue hover:brightness-110 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-[0_8px_24px_-12px_rgba(244,121,32,0.8)] cursor-pointer">
+                @include('partials.asisten-ai.ikon', ['class' => 'w-5 h-5'])
+                Ajukan dengan AI
+            </button>
             <a href="{{ route('keranjang.index') }}"
                 x-data="{ jumlah: {{ auth()->user()->jumlahKeranjang() }} }" @keranjang-diperbarui.window="jumlah = $event.detail.jumlah"
                 class="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-[0_8px_24px_-12px_rgba(0,61,130,0.8)]">
@@ -42,6 +48,7 @@
                 <span x-show="jumlah > 0" x-text="jumlah > 99 ? '99+' : jumlah"
                     class="bg-white text-bps-blue-dark text-[11px] min-w-5 px-1.5 py-0.5 rounded-full font-bold ml-1 shadow-sm text-center"></span>
             </a>
+            </div>
             @endunless
         </div>
 
@@ -185,5 +192,17 @@
 
     @unless($isGuest)
         @include('barang.partials.tambah-keranjang')
+
+        @include('partials.asisten-ai.modal', [
+            'konteks' => 'persediaan',
+            'judul' => 'Ajukan dengan AI',
+            'keterangan' => 'Tulis persediaan dan jumlah yang Anda butuhkan, AI akan memasukkannya ke keranjang.',
+            'placeholder' => 'Contoh: "Saya butuh 2 rim kertas A4, 1 kotak pulpen hitam, dan 3 map plastik"',
+            'contoh' => [
+                'Minta 2 rim kertas A4',
+                '1 kotak pulpen hitam dan 5 buku tulis',
+                'Tinta printer hitam untuk ruang TU',
+            ],
+        ])
     @endunless
 @endsection

@@ -5,6 +5,8 @@
     <div class="space-y-8">
         @include('partials.sambutan-dashboard', ['pesan' => 'Mau mengajukan persediaan atau meminjam fasilitas hari ini? Pilih layanan di bawah untuk memulai.'])
 
+        @include('partials.asisten-ai.kartu-dashboard')
+
         <div>
             <div class="mb-4 flex items-center gap-2">
                 <span class="inline-block h-4 w-1.5 rounded-full bg-bps-orange"></span>
