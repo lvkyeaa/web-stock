@@ -37,7 +37,8 @@
         </div>
 
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="overflow-x-auto">
+            {{-- Redup saat memuat dipasang di pembungkus, bukan <tbody>: Safari tidak menggambar ulang sebagian baris tabel setelah transisi opacity pada <tbody> --}}
+            <div class="overflow-x-auto transition-opacity" :class="loading && items.length && 'opacity-50'">
                 <table class="w-full">
                     <thead>
                         <tr class="bg-bps-blue/5 border-b border-gray-100">
@@ -47,7 +48,7 @@
                             <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider w-28">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-50 transition-opacity" :class="loading && items.length && 'opacity-50'">
+                    <tbody class="divide-y divide-gray-50">
                         <template x-for="(item, i) in items" :key="item.id">
                             <tr class="hover:bg-gray-50 transition">
                                 <td class="px-6 py-4 text-sm text-gray-500" x-text="meta.from + i"></td>

@@ -121,7 +121,8 @@
 
         {{-- TABEL DAFTAR BARANG --}}
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="overflow-x-auto">
+            {{-- Redup saat memuat dipasang di pembungkus, bukan <tbody>: Safari tidak menggambar ulang sebagian baris tabel setelah transisi opacity pada <tbody> --}}
+            <div class="overflow-x-auto transition-opacity" :class="loading && items.length && 'opacity-50'">
                 <table class="w-full">
                     <thead>
                         <tr class="bg-bps-blue/5 border-b border-gray-100">
@@ -135,7 +136,7 @@
                             <th class="text-left px-6 py-4 text-xs font-bold text-bps-blue uppercase tracking-wider">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-50 transition-opacity" :class="loading && items.length && 'opacity-50'">
+                    <tbody class="divide-y divide-gray-50">
                         <template x-for="(item, i) in items" :key="item.id">
                             {{-- Stok habis: baris abu-abu, kolom aksi tetap aktif agar admin bisa menambah stok --}}
                             <tr class="transition" :class="item.tersedia > 0 ? 'hover:bg-gray-50' : 'bg-slate-50 [&>td:not(:last-child)]:opacity-50 [&_img]:grayscale'">

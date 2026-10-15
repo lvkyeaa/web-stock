@@ -22,7 +22,8 @@
         @include('pengajuan.partials.filter', ['placeholder' => 'Cari kode, persediaan, atau pemohon...'])
 
         <div class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm">
-            <div class="overflow-x-auto">
+            {{-- Redup saat memuat dipasang di pembungkus, bukan <tbody>: Safari tidak menggambar ulang sebagian baris tabel setelah transisi opacity pada <tbody> --}}
+            <div class="overflow-x-auto transition-opacity" :class="loading && items.length && 'opacity-50'">
                 <table class="w-full">
                     <thead>
                         <tr class="border-b border-slate-100 bg-slate-50/60">
@@ -34,7 +35,7 @@
                             <th class="w-44 px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.22em] text-bps-blue-dark">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-50 transition-opacity" :class="loading && items.length && 'opacity-50'">
+                    <tbody class="divide-y divide-gray-50">
                         <template x-for="(item, i) in items" :key="item.id">
                             <tr class="align-top transition hover:bg-slate-50/70">
                                 <td class="px-4 py-4 text-sm text-slate-500" x-text="meta.from + i"></td>
