@@ -32,7 +32,7 @@ class RiwayatSeeder extends Seeder
                     'actor_id' => $admin->id,
                     'status_sebelumnya' => 'pending',
                     'status_sesudah' => $req->status,
-                    'catatan' => $req->status === 'disetujui' ? 'Permintaan disetujui admin.' : 'Permintaan ditolak: ' . $req->alasan,
+                    'catatan' => $req->status === 'disetujui' ? 'Permintaan disetujui admin.' : 'Permintaan ditolak: ' . $req->approvals->firstWhere('keputusan', 'ditolak')?->catatan,
                     'created_at' => $req->updated_at,
                 ]);
             }

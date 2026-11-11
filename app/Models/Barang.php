@@ -43,14 +43,14 @@ class Barang extends Model
 
     // ─── Reservasi stok ───
     // stock    = stok fisik, baru dipotong saat admin menyetujui pengajuan
-    // dipesan  = jumlah di pengajuan yang masih pending (sudah dijanjikan ke pemohon)
+    // dipesan  = jumlah di pengajuan yang masih menunggu ketua tim / admin (sudah dijanjikan ke pemohon)
     // tersedia = stock - dipesan, yang boleh diminta customer
     // Dipesan dihitung dari pengajuan (bukan kolom tersendiri), jadi otomatis lepas saat pengajuan disetujui/ditolak.
 
     // Menambahkan atribut `dipesan` lewat subquery
     public function scopeWithDipesan(Builder $query): void
     {
-        $query->withSum(['orderItems as dipesan' => fn ($q) => $q->whereRelation('order', 'status', 'pending')], 'jumlah');
+        $query->withSum(['orderItems as dipesan' => fn ($q) => $q->whereHas('order', fn ($o) => $o->whereIn('status', Order::MENUNGGU))], 'jumlah');
     }
 
     // Hanya barang yang masih tersedia (stock > dipesan)
@@ -59,7 +59,7 @@ class Barang extends Model
         $query->where('stock', '>', fn (QueryBuilder $sub) => $sub->from('order_items')
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->whereColumn('order_items.barang_id', 'barang.id')
-            ->where('orders.status', 'pending')
+            ->whereIn('orders.status', Order::MENUNGGU)
             ->selectRaw('coalesce(sum(order_items.jumlah), 0)'));
     }
 

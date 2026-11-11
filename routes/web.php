@@ -70,15 +70,18 @@ foreach (['admin/barang', 'customer/katalog'] as $urlLama) {
 }
 
 // ─── 📝 PENGAJUAN BARANG — SATU ROUTE UNTUK SEMUA PERAN ───
-// Admin: semua pengajuan, setujui/tolak; customer: riwayat sendiri. Keduanya bisa mengirim isi keranjang. Hak milik dicek di OrderController
+// Ketua tim yang dipilih: setujui/tolak tingkat 1; admin: semua pengajuan, setujui/tolak tingkat 2; customer: riwayat sendiri. Admin & customer bisa mengirim isi keranjang. Hak milik dicek di OrderController
 Route::prefix('pengajuan')->name('pengajuan.')->middleware(['auth', 'role:admin|customer'])->group(function () {
     Route::get('/', [OrderController::class, 'index'])->name('index');
     Route::get('/saya', [OrderController::class, 'saya'])->name('saya');
+    Route::get('/ketua', [OrderController::class, 'ketua'])->name('ketua'); // persetujuan tingkat 1: pengajuan yang memilih user ini sebagai ketua tim
     Route::get('/data', [OrderController::class, 'data'])->name('data');
     Route::get('/{order}/cetak-pdf', [OrderController::class, 'cetakPdf'])->name('cetak-pdf');
+    Route::get('/{order}/tanda-tangan/{jenis}', [OrderController::class, 'tandaTangan'])->whereIn('jenis', ['pemohon', 'ketua'])->name('tanda-tangan');
     Route::post('/', [OrderController::class, 'store'])->name('store');
     Route::patch('/{order}/status', [OrderController::class, 'updateStatus'])->middleware('role:admin')->name('update-status');
-    Route::patch('/{order}/batal', [OrderController::class, 'batal'])->name('batal'); // pemohon membatalkan pengajuan pending miliknya
+    Route::patch('/{order}/keputusan-ketua', [OrderController::class, 'keputusanKetua'])->name('keputusan-ketua'); // hanya ketua tim yang dipilih (dicek di controller)
+    Route::patch('/{order}/batal', [OrderController::class, 'batal'])->name('batal'); // pemohon (selama menunggu) / admin (selama menunggu ketua tim) membatalkan pengajuan
 });
 
 // ─── 🛒 KERANJANG BARANG (admin & customer), hak milik dicek di CartController; kirim pengajuan: pengajuan.store ───

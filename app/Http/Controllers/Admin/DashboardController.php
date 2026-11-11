@@ -19,7 +19,7 @@ class DashboardController extends Controller
         $stats = [
             'total_barang'        => Barang::count(),
             'stok_habis'          => Barang::count() - Barang::whereTersedia()->count(), // tidak ada stok yang bisa diajukan
-            'pending'             => Order::where('status', 'pending')->count(),
+            'pending'             => Order::where('status', 'menunggu_admin')->count(), // sudah disetujui ketua tim, menunggu admin
             // Pengajuan yang disetujui bulan ini (waktu persetujuan dari riwayat)
             'disetujui_bulan_ini' => Riwayat::where('status_sesudah', 'disetujui')
                 ->where('created_at', '>=', $hariIni->copy()->startOfMonth())

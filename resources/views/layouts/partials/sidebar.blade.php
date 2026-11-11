@@ -32,6 +32,11 @@
         ]],
     ];
 
+    // Ketua tim (atau yang pernah dipilih sebagai penanggung jawab): persetujuan tingkat pertama
+    if (auth()->user()->chiefOfTeams()->exists() || \App\Models\Order::where('person_responsible_user_id', auth()->id())->exists()) {
+        $menu[1][1][] = ['label' => 'Persetujuan Ketua Tim', 'ikon' => 'persetujuan', 'url' => route('pengajuan.ketua'), 'aktif' => ['pengajuan.ketua']];
+    }
+
     // Menu kelola khusus admin (route-nya juga dilindungi middleware role:admin)
     if ($isAdmin) {
         $menu[] = ['Kelola', [

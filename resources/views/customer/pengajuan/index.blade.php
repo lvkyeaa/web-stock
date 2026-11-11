@@ -12,6 +12,7 @@
     </div>
 
     @include('pengajuan.partials.filter', ['placeholder' => 'Cari kode pengajuan atau persediaan...'])
+    @include('pengajuan.partials.dialog-tanda-tangan')
 
     <div class="space-y-4 transition-opacity" :class="loading && items.length && 'opacity-50'">
         {{-- Satu kartu per pengajuan (tanpa tabel, agar nyaman di layar ponsel) --}}
@@ -51,13 +52,24 @@
                     </template>
                 </ul>
 
+                {{-- Lihat tanda tangan pemohon & ketua tim (setelah ketua menyetujui) di dialog --}}
+                <div x-show="item.ttd_pemohon" class="px-4 sm:px-6 py-3 border-t border-gray-100">
+                    <button type="button" @click="lihatTtd(item)"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 text-xs font-semibold transition cursor-pointer">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                        Lihat Tanda Tangan
+                    </button>
+                </div>
+
                 <footer class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-6 py-3 bg-gray-50/70 border-t border-gray-100">
                     <p class="text-xs text-gray-500 min-w-0">
-                        <span class="font-semibold text-gray-600">Catatan admin:</span>
+                        <span class="font-semibold text-gray-600" x-text="item.ditolak_oleh ? `Ditolak ${item.ditolak_oleh}:` : 'Catatan:'"></span>
                         <span class="italic" x-text="item.alasan || '-'"></span>
                     </p>
 
-                    {{-- Cetak PDF (disetujui), batalkan (pending milik sendiri), atau keterangan --}}
+                    {{-- Cetak PDF (disetujui), batalkan (masih menunggu, milik sendiri), atau keterangan --}}
                     <a x-show="item.pdf_url" :href="item.pdf_url" target="_blank"
                         class="inline-flex shrink-0 items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 text-xs font-bold transition">
                         <svg class="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -105,7 +117,7 @@
             <div class="min-w-0">
                 <h3 id="judulBatal" class="text-lg font-bold text-gray-900">Batalkan Pengajuan?</h3>
                 <p class="text-xs text-gray-500 mt-1">
-                    Pengajuan <span id="batalKode" class="font-mono font-semibold text-gray-700"></span> akan dibatalkan dan tidak bisa diproses admin lagi.
+                    Pengajuan <span id="batalKode" class="font-mono font-semibold text-gray-700"></span> akan dibatalkan dan tidak bisa diproses ketua tim / admin lagi.
                     Stok yang dipesan untuk pengajuan ini dilepas.
                 </p>
             </div>

@@ -11,12 +11,20 @@ use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
-// Controller pengajuan barang untuk role admin (semua pengajuan, setujui/tolak, pengajuan sendiri langsung disetujui) maupun customer (pengajuan sendiri).
-// Aksi khusus satu peran dibatasi di route; hak akses per pengajuan (milik sendiri) dicek di sini.
+// Controller pengajuan barang. Persetujuan dua tingkat: ketua tim yang dipilih saat checkout (wajib tanda tangan), lalu admin
+// (stok dipotong). Berlaku juga untuk pengajuan admin. Customer & admin: pengajuan sendiri.
+// Aksi khusus satu peran dibatasi di route; hak akses per pengajuan (milik sendiri / ketua yang dipilih) dicek di sini.
 class OrderController extends Controller
 {
-    public const STATUS = ['pending' => 'Pending', 'disetujui' => 'Disetujui', 'ditolak' => 'Ditolak', 'dibatalkan' => 'Dibatalkan'];
+    public const STATUS = [
+        'menunggu_ketua' => 'Menunggu Ketua Tim',
+        'menunggu_admin' => 'Menunggu Admin',
+        'disetujui'      => 'Disetujui',
+        'ditolak'        => 'Ditolak',
+        'dibatalkan'     => 'Dibatalkan',
+    ];
 
     // Admin: halaman persetujuan (semua pengajuan); customer: Pengajuan Saya
     public function index(Request $request)
@@ -34,6 +42,12 @@ class OrderController extends Controller
         return view('customer.pengajuan.index', ['initial' => $this->kondisiAwal($request, 'saya')]);
     }
 
+    // Persetujuan tingkat 1: pengajuan yang memilih user yang login sebagai ketua tim/penanggung jawab
+    public function ketua(Request $request)
+    {
+        return view('admin.transaksi.index', ['initial' => $this->kondisiAwal($request, 'ketua')]);
+    }
+
     // Hanya kerangka halaman; daftar diambil lewat data() (JSON). Kondisi awal dari query string (tetap saat reload)
     private function kondisiAwal(Request $request, string $lingkup): array
     {
@@ -41,7 +55,7 @@ class OrderController extends Controller
             'status'  => array_key_exists((string) $request->status, self::STATUS) ? $request->status : '',
             'q'       => mb_substr(trim((string) $request->q), 0, 100),
             'page'    => max(1, (int) $request->page),
-            'lingkup' => $lingkup, // saya = pengajuan sendiri, semua = semua pengajuan (khusus admin)
+            'lingkup' => $lingkup, // saya = pengajuan sendiri, ketua = yang memilihnya sebagai ketua tim, semua = semua pengajuan (khusus admin)
             'dataUrl' => route('pengajuan.data'),
             'csrf'    => csrf_token(),
         ];
@@ -51,7 +65,7 @@ class OrderController extends Controller
     public function data(Request $request)
     {
         $request->validate([
-            'lingkup' => 'nullable|in:saya,semua',
+            'lingkup' => 'nullable|in:saya,ketua,semua',
             'status'  => 'nullable|in:' . implode(',', array_keys(self::STATUS)),
             'q'       => 'nullable|string|max:100',
             'page'    => 'nullable|integer|min:1',
@@ -60,36 +74,55 @@ class OrderController extends Controller
         $user = $request->user();
         $isAdmin = $user->hasRole('admin');
         $semua = $request->lingkup === 'semua';
+        $ketua = $request->lingkup === 'ketua';
         abort_if($semua && ! $isAdmin, 403);
 
-        $orders = Order::with(['user:id,username,name', 'items'])
-            ->when(! $semua, fn ($query) => $query->where('user_id', $user->id))
+        $orders = Order::with(['user:id,username,name', 'personResponsible:id,name', 'approvals', 'items'])
+            ->when($ketua, fn ($query) => $query->where('person_responsible_user_id', $user->id))
+            ->when(! $semua && ! $ketua, fn ($query) => $query->where('user_id', $user->id))
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->status))
-            // Cari kode pengajuan atau nama persediaan; di daftar semua pengajuan juga nama/username pemohon
-            ->when($request->filled('q'), function ($query) use ($request, $semua) {
+            // Cari kode pengajuan atau nama persediaan; di daftar persetujuan (ketua / semua) juga nama/username pemohon
+            ->when($request->filled('q'), function ($query) use ($request, $semua, $ketua) {
                 $kata = '%' . trim($request->q) . '%';
                 $query->where(fn ($w) => $w->where('code', 'like', $kata)
                     ->orWhereHas('items', fn ($item) => $item->where('nama_barang', 'like', $kata))
-                    ->when($semua, fn ($w) => $w->orWhereHas('user', fn ($u) => $u->where('username', 'like', $kata)->orWhere('name', 'like', $kata))));
+                    ->when($semua || $ketua, fn ($w) => $w->orWhereHas('user', fn ($u) => $u->where('username', 'like', $kata)->orWhere('name', 'like', $kata))));
             })
             ->latest()
             ->paginate(10);
 
         return response()->json([
-            'data' => $orders->getCollection()->map(fn (Order $order) => [
-                'id'           => $order->id,
-                'code'         => $order->code,
-                'status'       => $order->status,
-                'status_label' => self::STATUS[$order->status] ?? $order->status,
-                'alasan'       => $order->alasan,
-                'dibuat'       => $order->created_at->tanggalJam(),
-                'pemohon'      => $order->user->name ?? $order->user->username ?? '-',
-                'items'        => $order->items->map->only(['nama_barang', 'satuan', 'jumlah'])->values(),
-                // Aksi yang boleh dilakukan pada baris ini (null = tidak ada tombolnya)
-                'pdf_url'      => $order->status === 'disetujui' ? route('pengajuan.cetak-pdf', $order) : null,
-                'batal_url'    => $order->status === 'pending' && $order->user_id === $user->id ? route('pengajuan.batal', $order) : null,
-                'status_url'   => $order->status === 'pending' && $isAdmin && $semua ? route('pengajuan.update-status', $order) : null,
-            ]),
+            'data' => $orders->getCollection()->map(function (Order $order) use ($user, $isAdmin, $semua, $ketua) {
+                // Alasan penolakan tercatat di order_approvals (tingkat ketua tim / admin)
+                $penolakan = $order->approvals->firstWhere('keputusan', 'ditolak');
+                $ttdKetua = $order->approvals->firstWhere('level', 'ketua')?->signature_path;
+
+                return [
+                    'id'           => $order->id,
+                    'code'         => $order->code,
+                    'status'       => $order->status,
+                    'status_label' => self::STATUS[$order->status] ?? $order->status,
+                    'alasan'       => $penolakan?->catatan,
+                    'ditolak_oleh' => $penolakan ? ($penolakan->level === 'ketua' ? 'oleh ketua tim' : 'oleh admin') : null,
+                    'dibuat'       => $order->created_at->tanggalJam(),
+                    'pemohon'      => $order->user->name ?? $order->user->username ?? '-',
+                    'ketua'        => $order->personResponsible->name ?? '-',
+                    'items'        => $order->items->map->only(['nama_barang', 'satuan', 'jumlah'])->values(),
+                    // Aksi yang boleh dilakukan pada baris ini (null = tidak ada tombolnya)
+                    'pdf_url'      => $order->status === 'disetujui' ? route('pengajuan.cetak-pdf', $order) : null,
+                    // Gambar tanda tangan (null = belum/tidak ada)
+                    'ttd_pemohon'  => $order->user_signature ? route('pengajuan.tanda-tangan', [$order, 'pemohon']) : null,
+                    'ttd_ketua'    => $ttdKetua ? route('pengajuan.tanda-tangan', [$order, 'ketua']) : null,
+                    // Pemohon: selama masih menunggu; admin (daftar semua): selama masih menunggu ketua tim
+                    'batal_url'    => (in_array($order->status, Order::MENUNGGU) && $order->user_id === $user->id)
+                        || ($semua && $isAdmin && $order->status === 'menunggu_ketua') ? route('pengajuan.batal', $order) : null,
+                    'status_url'   => match (true) {
+                        $ketua && $order->status === 'menunggu_ketua'             => route('pengajuan.keputusan-ketua', $order),
+                        $semua && $isAdmin && $order->status === 'menunggu_admin' => route('pengajuan.update-status', $order),
+                        default                                                   => null,
+                    },
+                ];
+            }),
             'meta' => [
                 'current_page' => $orders->currentPage(),
                 'last_page'    => $orders->lastPage(),
@@ -100,35 +133,35 @@ class OrderController extends Controller
         ]);
     }
 
-    // Checkout: isi keranjang menjadi satu pengajuan (order).
-    // Customer: pending, stok dipesan sampai admin menyetujui. Admin: langsung disetujui & stok langsung dipotong.
+    // Checkout: isi keranjang menjadi satu pengajuan (order) yang menunggu ketua tim. Berlaku untuk customer maupun admin.
+    // Stok dipesan sampai pengajuan disetujui admin (stok dipotong), ditolak, atau dibatalkan.
     public function store(Request $request)
     {
         $request->validate([
             'team_id'                    => 'required|exists:teams,id',
             'person_responsible_user_id' => 'nullable|string',
+            'tanda_tangan'               => $this->aturanTandaTangan(),
         ], [
-            'team_id.required' => 'Pilih tim terlebih dahulu.',
+            'team_id.required'      => 'Pilih tim terlebih dahulu.',
+            'tanda_tangan.required' => 'Tanda tangan dulu sebelum mengirim pengajuan.',
         ]);
 
-        // Tim yang punya ketua: penanggung jawab wajib dipilih dan harus salah satu ketua tim itu.
-        // Tim tanpa ketua: penanggung jawab dikosongkan (nama di PDF dibiarkan kosong)
+        // Ketua tim wajib dipilih dan harus salah satu ketua tim itu; tim tanpa ketua belum bisa mengajukan
         $chiefs = Team::find($request->team_id)->chiefs();
-        if ($chiefs->exists()) {
-            if (! $request->filled('person_responsible_user_id')) {
-                return response()->json(['message' => 'Pilih ketua tim/penanggung jawab terlebih dahulu.'], 422);
-            }
-            if (! $chiefs->whereKey($request->person_responsible_user_id)->exists()) {
-                return response()->json(['message' => 'Ketua tim/penanggung jawab tidak sesuai dengan tim yang dipilih.'], 422);
-            }
-        } else {
-            $request->merge(['person_responsible_user_id' => null]);
+        if (! $chiefs->exists()) {
+            return response()->json(['message' => 'Tim ini belum memiliki ketua tim, jadi belum bisa mengajukan. Hubungi admin.'], 422);
+        }
+        if (! $request->filled('person_responsible_user_id')) {
+            return response()->json(['message' => 'Pilih ketua tim/penanggung jawab terlebih dahulu.'], 422);
+        }
+        if (! $chiefs->whereKey($request->person_responsible_user_id)->exists()) {
+            return response()->json(['message' => 'Ketua tim/penanggung jawab tidak sesuai dengan tim yang dipilih.'], 422);
         }
 
         $user = $request->user();
         $isAdmin = $user->hasRole('admin');
 
-        $hasil = DB::transaction(function () use ($request, $user, $isAdmin) {
+        $hasil = DB::transaction(function () use ($request, $user) {
             // Satu checkout per user dalam satu waktu: submit ganda menunggu di sini, lalu mendapati keranjang kosong
             User::whereKey($user->id)->lockForUpdate()->first();
 
@@ -154,7 +187,8 @@ class OrderController extends Controller
 
             $order = $user->orders()->create([
                 'code'                       => Order::buatKode(),
-                'status'                     => $isAdmin ? 'disetujui' : 'pending',
+                'status'                     => 'menunggu_ketua',
+                'user_signature'             => Order::simpanTandaTangan($request->tanda_tangan),
                 'team_id'                  => $request->team_id,
                 'person_responsible_user_id' => $request->person_responsible_user_id,
             ]);
@@ -166,23 +200,6 @@ class OrderController extends Controller
                 'satuan'      => $item->barang->satuan,
                 'jumlah'      => $item->jumlah,
             ])->all());
-
-            if ($isAdmin) {
-                // Baris barang sudah dikunci di atas dan jumlahnya muat di stok tersedia, jadi stok tidak bisa minus
-                foreach ($keranjang as $item) {
-                    $item->barang->decrement('stock', $item->jumlah);
-                }
-
-                Riwayat::create([
-                    'order_id'          => $order->id,
-                    'actor_id'          => $user->id,
-                    'status_sebelumnya' => null,
-                    'status_sesudah'    => 'disetujui',
-                    'catatan'           => 'Pengajuan admin, langsung disetujui.',
-                ]);
-
-                $order->beriNomor(); // nomor surat PDF tetap sejak disetujui
-            }
 
             $user->cartItems()->delete();
 
@@ -198,9 +215,7 @@ class OrderController extends Controller
             ], 422);
         }
 
-        $pesan = $isAdmin
-            ? "Pengajuan {$hasil->code} disetujui dan stok telah dipotong."
-            : "Pengajuan {$hasil->code} berhasil dikirim!";
+        $pesan = "Pengajuan {$hasil->code} berhasil dikirim dan menunggu persetujuan ketua tim.";
 
         // Halaman keranjang lalu pindah ke Pengajuan Saya (url); pesan sukses tampil di sana lewat flash session
         session()->flash('success', $pesan);
@@ -213,6 +228,60 @@ class OrderController extends Controller
         ]);
     }
 
+    // Persetujuan tingkat 1 oleh ketua tim yang dipilih saat checkout. Setuju (wajib tanda tangan) → menunggu admin; tolak → selesai.
+    public function keputusanKetua(Request $request, Order $order)
+    {
+        // 404 agar keberadaan pengajuan yang bukan untuknya tidak terungkap
+        abort_unless($order->person_responsible_user_id === $request->user()->id, 404);
+
+        $request->validate([
+            'status'       => 'required|in:disetujui,ditolak',
+            'alasan'       => 'nullable|string|max:500',
+            'tanda_tangan' => ['exclude_unless:status,disetujui', ...$this->aturanTandaTangan()],
+        ], [
+            'tanda_tangan.required' => 'Tanda tangan dulu sebelum menyetujui.',
+        ]);
+
+        $error = DB::transaction(function () use ($request, $order) {
+            // Kunci order agar keputusan tidak bentrok dengan pembatalan oleh pemohon
+            $order = Order::whereKey($order->id)->lockForUpdate()->first();
+
+            if ($order->status !== 'menunggu_ketua') {
+                return 'Pengajuan ini sudah diproses sebelumnya.';
+            }
+
+            $disetujui = $request->status === 'disetujui';
+            $statusBaru = $disetujui ? 'menunggu_admin' : 'ditolak';
+
+            $order->approvals()->create([
+                'level'          => 'ketua',
+                'user_id'        => $request->user()->id,
+                'keputusan'      => $request->status,
+                'signature_path' => $disetujui ? Order::simpanTandaTangan($request->tanda_tangan) : null,
+                'catatan'        => $disetujui ? null : $request->alasan,
+            ]);
+
+            Riwayat::create([
+                'order_id'          => $order->id,
+                'actor_id'          => $request->user()->id,
+                'status_sebelumnya' => $order->status,
+                'status_sesudah'    => $statusBaru,
+                'catatan'           => $request->alasan,
+            ]);
+
+            $order->update(['status' => $statusBaru]);
+
+            return null;
+        });
+
+        $pesan = $error ?? ($request->status === 'disetujui'
+            ? 'Pengajuan disetujui dan diteruskan ke admin.'
+            : 'Pengajuan telah ditolak.');
+
+        return response()->json(['message' => $pesan], $error ? 422 : 200);
+    }
+
+    // Persetujuan tingkat 2 oleh admin (tanpa tanda tangan): setuju → stok dipotong & diberi nomor surat
     public function updateStatus(Request $request, Order $order)
     {
         $request->validate([
@@ -224,7 +293,10 @@ class OrderController extends Controller
             // Kunci order agar dua admin tidak memproses pengajuan yang sama bersamaan
             $order = Order::whereKey($order->id)->lockForUpdate()->first();
 
-            if ($order->status !== 'pending') {
+            if ($order->status === 'menunggu_ketua') {
+                return 'Pengajuan ini belum disetujui ketua tim.';
+            }
+            if ($order->status !== 'menunggu_admin') {
                 return 'Transaksi ini sudah diproses sebelumnya.';
             }
 
@@ -248,6 +320,13 @@ class OrderController extends Controller
                 }
             }
 
+            $order->approvals()->create([
+                'level'     => 'admin',
+                'user_id'   => auth()->id(),
+                'keputusan' => $request->status,
+                'catatan'   => $request->status === 'ditolak' ? $request->alasan : null,
+            ]);
+
             Riwayat::create([
                 'order_id'          => $order->id,
                 'actor_id'          => auth()->id(),
@@ -256,10 +335,7 @@ class OrderController extends Controller
                 'catatan'           => $request->alasan,
             ]);
 
-            $order->update([
-                'status' => $request->status,
-                'alasan' => $request->alasan,
-            ]);
+            $order->update(['status' => $request->status]);
 
             if ($request->status === 'disetujui') {
                 $order->beriNomor(); // nomor surat PDF tetap sejak disetujui
@@ -280,27 +356,33 @@ class OrderController extends Controller
         return back()->with($error ? 'error' : 'success', $pesan);
     }
 
-    // Pemohon membatalkan pengajuannya sendiri selama masih pending (dipanggil lewat fetch, respons JSON).
-    // Status jadi 'dibatalkan' (riwayat tetap ada); stok yang dipesan otomatis lepas karena reservasi hanya menghitung pending.
+    // Pemohon membatalkan pengajuannya sendiri selama masih menunggu ketua tim / admin (dipanggil lewat fetch, respons JSON).
+    // Status jadi 'dibatalkan' (riwayat tetap ada); stok yang dipesan otomatis lepas karena reservasi hanya menghitung yang menunggu.
+    // Admin juga boleh membatalkan pengajuan siapa pun selama masih menunggu ketua tim.
     public function batal(Request $request, Order $order)
     {
-        // 404 agar keberadaan pengajuan milik user lain tidak terungkap
-        abort_unless($order->user_id === $request->user()->id, 404);
+        $pemohon = $order->user_id === $request->user()->id;
 
-        $galat = DB::transaction(function () use ($request, $order) {
-            // Kunci baris pengajuan: jika admin menyetujui/menolak bersamaan, hanya salah satu yang berhasil
+        // 404 agar keberadaan pengajuan milik user lain tidak terungkap
+        abort_unless($pemohon || $request->user()->hasRole('admin'), 404);
+
+        $galat = DB::transaction(function () use ($request, $order, $pemohon) {
+            // Kunci baris pengajuan: jika ketua tim / admin menyetujui/menolak bersamaan, hanya salah satu yang berhasil
             $order = Order::whereKey($order->id)->lockForUpdate()->first();
 
-            if ($order->status !== 'pending') {
-                return 'Pengajuan ini sudah diproses admin sehingga tidak bisa dibatalkan.';
+            if ($pemohon && ! in_array($order->status, Order::MENUNGGU)) {
+                return 'Pengajuan ini sudah diproses sehingga tidak bisa dibatalkan.';
+            }
+            if (! $pemohon && $order->status !== 'menunggu_ketua') {
+                return 'Admin hanya bisa membatalkan pengajuan yang masih menunggu ketua tim.';
             }
 
             Riwayat::create([
                 'order_id'          => $order->id,
                 'actor_id'          => $request->user()->id,
-                'status_sebelumnya' => 'pending',
+                'status_sebelumnya' => $order->status,
                 'status_sesudah'    => 'dibatalkan',
-                'catatan'           => 'Dibatalkan oleh pemohon.',
+                'catatan'           => $pemohon ? 'Dibatalkan oleh pemohon.' : 'Dibatalkan oleh admin.',
             ]);
 
             $order->update(['status' => 'dibatalkan']);
@@ -316,6 +398,18 @@ class OrderController extends Controller
         return response()->json(['message' => "Pengajuan {$order->code} dibatalkan.", 'status' => 'dibatalkan']);
     }
 
+    // Gambar tanda tangan pemohon / ketua tim; hanya untuk admin, pemohon, dan ketua tim yang dipilih (lainnya 404)
+    public function tandaTangan(Request $request, Order $order, string $jenis)
+    {
+        $user = $request->user();
+        abort_unless($user->hasRole('admin') || in_array($user->id, [$order->user_id, $order->person_responsible_user_id], true), 404);
+
+        $path = $jenis === 'pemohon' ? $order->user_signature : $order->approvalKetua?->signature_path;
+        abort_unless($path && Storage::disk('local')->exists($path), 404);
+
+        return Storage::disk('local')->response($path);
+    }
+
     public function cetakPdf(Request $request, Order $order)
     {
         // Customer hanya boleh mencetak miliknya; 404 agar keberadaan pengajuan milik user lain tidak terungkap
@@ -325,10 +419,21 @@ class OrderController extends Controller
             return back()->with('error', 'Cetak dokumen hanya tersedia untuk transaksi yang telah disetujui (ACC).');
         }
 
-        $order->load(['user', 'team', 'personResponsible', 'items']);
+        $order->load(['user', 'team', 'personResponsible', 'approvalKetua', 'items']);
 
         return Pdf::loadView('pdf.bukti-pengajuan', ['pengajuan' => $order, 'nomorSurat' => $order->nomorSurat()])
             ->setPaper('a4', 'portrait')
             ->stream('Permintaan_ATK_' . $order->code . '.pdf');
+    }
+
+    // Tanda tangan dari kanvas: data URL yang benar-benar berisi gambar PNG (maks. ~500 KB)
+    private function aturanTandaTangan(): array
+    {
+        return ['required', 'string', 'starts_with:data:image/png;base64,', 'max:700000', function ($attribute, $value, $fail) {
+            $info = @getimagesizefromstring((string) base64_decode(substr($value, strpos($value, ',') + 1), true));
+            if (($info['mime'] ?? null) !== 'image/png') {
+                $fail('Tanda tangan tidak valid. Hapus lalu tanda tangani ulang.');
+            }
+        }];
     }
 }

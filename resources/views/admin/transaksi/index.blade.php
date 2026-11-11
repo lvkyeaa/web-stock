@@ -1,16 +1,19 @@
-@extends('layouts.admin')
-@section('title', 'Persetujuan Pengajuan Persediaan')
+{{-- Dipakai dua tingkat persetujuan: admin (lingkup semua) & ketua tim (lingkup ketua: pengajuan yang memilihnya sebagai penanggung jawab).
+     Ketua tim wajib menandatangani saat menyetujui. --}}
+@php($ketua = $initial['lingkup'] === 'ketua')
+@extends(auth()->user()->hasRole('admin') ? 'layouts.admin' : 'layouts.customer')
+@section('title', $ketua ? 'Persetujuan Ketua Tim' : 'Persetujuan Pengajuan Persediaan')
 
 @section('content')
     @include('pengajuan.partials.list-script')
 
-    {{-- Daftar dimuat lewat JSON (pengajuan.data, lingkup semua): ganti halaman / filter / setujui / tolak tidak me-reload halaman --}}
+    {{-- Daftar dimuat lewat JSON (pengajuan.data): ganti halaman / filter / setujui / tolak tidak me-reload halaman --}}
     <div class="space-y-6" x-data="pengajuanList(@js($initial))" @pengajuan-diperbarui.window="load()">
         <div class="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Kelola</p>
-                    <h2 class="mt-1 text-xl font-semibold tracking-tight text-slate-900">Persetujuan Pengajuan Persediaan</h2>
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">{{ $ketua ? 'Ketua Tim/Penanggung Jawab' : 'Kelola' }}</p>
+                    <h2 class="mt-1 text-xl font-semibold tracking-tight text-slate-900">{{ $ketua ? 'Persetujuan Ketua Tim' : 'Persetujuan Pengajuan Persediaan' }}</h2>
                 </div>
                 <div class="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
                     <span class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Total</span>
@@ -20,6 +23,7 @@
         </div>
 
         @include('pengajuan.partials.filter', ['placeholder' => 'Cari kode, persediaan, atau pemohon...'])
+        @include('pengajuan.partials.dialog-tanda-tangan')
 
         <div class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm">
             {{-- Redup saat memuat dipasang di pembungkus, bukan <tbody>: Safari tidak menggambar ulang sebagian baris tabel setelah transisi opacity pada <tbody> --}}
@@ -42,6 +46,11 @@
                                 <td class="px-4 py-4 text-sm font-semibold text-slate-900">
                                     <span x-text="item.pemohon"></span>
                                     <span class="block text-[10px] font-normal text-slate-400" x-text="item.code"></span>
+                                    @unless ($ketua)
+                                        <span class="block text-[10px] font-normal text-slate-500" x-text="'Ketua: ' + item.ketua"></span>
+                                    @endunless
+                                    <button type="button" x-show="item.ttd_pemohon" @click="lihatTtd(item)"
+                                        class="block text-left text-[10px] font-semibold text-bps-blue hover:underline cursor-pointer">Lihat tanda tangan</button>
                                 </td>
 
                                 {{-- Daftar rincian persediaan dalam 1 pengajuan --}}
@@ -65,7 +74,7 @@
 
                                 <td class="px-4 py-4 text-xs whitespace-nowrap text-slate-500" x-text="item.dibuat"></td>
 
-                                {{-- Aksi: setujui / tolak (pending), keterangan (sudah diproses), cetak PDF (disetujui) --}}
+                                {{-- Aksi: setujui / tolak (menunggu tingkat ini), keterangan (lainnya), batalkan (admin: menunggu ketua tim), cetak PDF (disetujui) --}}
                                 <td class="px-4 py-4 text-center">
                                     <div class="flex flex-col gap-2">
                                         <template x-if="item.status_url">
@@ -83,11 +92,17 @@
                                         <template x-if="!item.status_url">
                                             <div class="text-left mb-1">
                                                 <span class="block text-[11px] font-semibold text-slate-500"
-                                                    x-text="item.status === 'dibatalkan' ? 'Dibatalkan pemohon' : 'Selesai'"></span>
+                                                    x-text="{ dibatalkan: 'Dibatalkan', menunggu_ketua: 'Menunggu ketua tim', menunggu_admin: 'Menunggu admin' }[item.status] ?? 'Selesai'"></span>
+                                                <span x-show="item.ditolak_oleh" class="block text-[10px] text-slate-400" x-text="'Ditolak ' + item.ditolak_oleh"></span>
                                                 <span x-show="item.alasan" class="block text-[10px] italic text-rose-500 max-w-[130px] truncate"
                                                     :title="item.alasan" x-text="'Alasan: ' + item.alasan"></span>
                                             </div>
                                         </template>
+
+                                        <button type="button" x-show="item.batal_url && !item.status_url" @click="openBatalModal(item)"
+                                            class="w-full rounded-xl border border-rose-200 bg-white hover:bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 transition cursor-pointer">
+                                            Batalkan
+                                        </button>
 
                                         <a x-show="item.pdf_url" :href="item.pdf_url" target="_blank"
                                             class="w-full flex items-center justify-center gap-1 rounded-xl border border-red-200 bg-red-50/70 hover:bg-red-100 px-2.5 py-1.5 text-xs font-bold text-red-700 transition shadow-xs">
@@ -137,7 +152,7 @@
                     <p class="text-xs text-slate-500 mt-1">
                         Pengajuan <span id="setujuiKode" class="font-mono font-semibold text-slate-700"></span>
                         dari <span id="setujuiPemohon" class="font-semibold text-slate-700"></span>
-                        (<span id="setujuiJumlah"></span> item) akan disetujui dan stok langsung dipotong.
+                        (<span id="setujuiJumlah"></span> item) akan disetujui{{ $ketua ? ' dan diteruskan ke admin' : ' dan stok langsung dipotong' }}.
                     </p>
                 </div>
                 <button type="button" onclick="tutupDialog('modalSetujui')" aria-label="Tutup" title="Tutup"
@@ -149,6 +164,12 @@
             </div>
 
             <form id="formSetujui" onsubmit="kirimStatus(event, 'disetujui')" class="space-y-4">
+                @if ($ketua)
+                    <div>
+                        <span class="block text-xs font-semibold text-slate-700 mb-1.5">Tanda Tangan Ketua Tim/Penanggung Jawab <span class="text-red-500">*</span></span>
+                        @include('pengajuan.partials.tanda-tangan', ['atribut' => 'id="padKetua"'])
+                    </div>
+                @endif
                 <p data-galat role="alert" class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700"></p>
                 <div class="flex gap-3">
                     <button type="button" onclick="tutupDialog('modalSetujui')"
@@ -193,6 +214,39 @@
         </div>
     </div>
 
+    {{-- Modal Batalkan Pengajuan (admin, selama menunggu ketua tim) --}}
+    <div id="modalBatal" data-dialog class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+        role="dialog" aria-modal="true" aria-labelledby="judulBatal">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div class="flex items-start gap-3 mb-4">
+                <div class="min-w-0">
+                    <h3 id="judulBatal" class="text-lg font-bold text-slate-900">Batalkan Pengajuan?</h3>
+                    <p class="text-xs text-slate-500 mt-1">
+                        Pengajuan <span id="batalKode" class="font-mono font-semibold text-slate-700"></span>
+                        dari <span id="batalPemohon" class="font-semibold text-slate-700"></span>
+                        akan dibatalkan dan tidak bisa diproses ketua tim lagi. Stok yang dipesan untuk pengajuan ini dilepas.
+                    </p>
+                </div>
+                <button type="button" onclick="tutupDialog('modalBatal')" aria-label="Tutup" title="Tutup"
+                    class="ml-auto shrink-0 -mt-1 -mr-1 p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-pointer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <form id="formBatal" onsubmit="kirimBatal(event)" class="space-y-4">
+                <p data-galat role="alert" class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700"></p>
+                <div class="flex gap-3">
+                    <button type="button" onclick="tutupDialog('modalBatal')"
+                        class="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 cursor-pointer">Kembali</button>
+                    <button type="submit"
+                        class="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-60 disabled:cursor-wait">Ya, Batalkan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="pesanPengajuan" aria-live="polite" class="fixed bottom-4 right-4 left-4 sm:left-auto sm:w-96 z-[60] space-y-2"></div>
 
     <script>
@@ -203,6 +257,8 @@
             pengajuanDipilih = item;
             const dialog = document.getElementById(id);
             dialog.querySelector('form').reset();
+            const pad = dialog.querySelector('#padKetua');
+            if (pad) Alpine.$data(pad).hapus();
             dialog.querySelector('[data-galat]').classList.add('hidden');
             dialog.querySelector('button[type="submit"]').disabled = false;
             dialog.classList.remove('hidden');
@@ -226,6 +282,45 @@
             document.querySelector('#modalTolak textarea').focus();
         }
 
+        function openBatalModal(item) {
+            document.getElementById('batalKode').textContent = item.code;
+            document.getElementById('batalPemohon').textContent = item.pemohon;
+            bukaDialog('modalBatal', item);
+            document.querySelector('#modalBatal button[type="submit"]').focus();
+        }
+
+        // Batalkan lewat fetch (JSON); berhasil → dialog ditutup & daftar dimuat ulang, gagal (mis. sudah disetujui ketua) → pesan di dialog
+        async function kirimBatal(event) {
+            event.preventDefault();
+            const tombol = event.target.querySelector('button[type="submit"]');
+            const galat = event.target.querySelector('[data-galat]');
+            tombol.disabled = true;
+            galat.classList.add('hidden');
+
+            try {
+                const response = await fetch(pengajuanDipilih.batal_url, {
+                    method: 'PATCH',
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+                });
+                const json = await response.json().catch(() => ({}));
+                muatUlangPengajuan();
+
+                if (!response.ok) {
+                    galat.textContent = json.message ?? 'Gagal membatalkan pengajuan. Silakan coba lagi.';
+                    galat.classList.remove('hidden');
+                    return;
+                }
+
+                tutupDialog('modalBatal');
+                tampilkanPesanPengajuan(json.message);
+            } catch (e) {
+                galat.textContent = 'Gagal membatalkan pengajuan. Periksa koneksi lalu coba lagi.';
+                galat.classList.remove('hidden');
+            } finally {
+                tombol.disabled = false;
+            }
+        }
+
         // Setujui / tolak lewat fetch (JSON); berhasil → dialog ditutup & daftar dimuat ulang, gagal → pesan di dialog
         async function kirimStatus(event, status) {
             event.preventDefault();
@@ -235,6 +330,16 @@
             const galat = form.querySelector('[data-galat]');
             const body = { status };
             if (status === 'ditolak') body.alasan = form.alasan.value;
+
+            const pad = form.querySelector('#padKetua');
+            if (pad) {
+                body.tanda_tangan = Alpine.$data(pad).value;
+                if (!body.tanda_tangan) {
+                    galat.textContent = 'Tanda tangan dulu sebelum menyetujui.';
+                    galat.classList.remove('hidden');
+                    return;
+                }
+            }
 
             tombol.disabled = true;
             galat.classList.add('hidden');

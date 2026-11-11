@@ -14,9 +14,7 @@
     <div>
         <h2 class="text-xl font-semibold tracking-tight text-gray-900">Keranjang Persediaan</h2>
         <p class="text-sm text-gray-500 mt-1">Periksa persediaan dan jumlahnya sebelum mengirim pengajuan.</p>
-        @role('admin')
-            <p class="text-xs text-bps-blue mt-1 font-medium">Pengajuan admin langsung disetujui dan stok langsung dipotong.</p>
-        @endrole
+        <p class="text-xs text-bps-blue mt-1 font-medium">Pengajuan disetujui dua tahap: ketua tim/penanggung jawab, lalu admin.</p>
     </div>
 
     {{-- Pesan gagal kirim pengajuan (jika berhasil, halaman pindah ke Pengajuan Saya) --}}
@@ -27,78 +25,77 @@
 
     <div class="space-y-4">
         <div x-show="items.length" class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-gray-50 border-b border-gray-100">
-                            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Nama Persediaan</th>
-                            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Satuan</th>
-                            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-40">Jumlah Diminta</th>
-                            <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        <template x-for="item in items" :key="item.id">
-                            {{-- Jumlah melebihi stok tersedia (stok - yang sudah diajukan): tetap di keranjang, tapi menahan pengiriman --}}
-                            <tr class="transition" :class="(bermasalah(item) || item.error) ? 'bg-amber-50/60' : 'hover:bg-gray-50/50'">
-                                <td class="px-6 py-4 align-top">
-                                    <div class="font-bold text-gray-900" x-text="item.nama_barang"></div>
-                                    <div class="text-xs text-gray-400" x-text="`Tersedia: ${item.tersedia} ${item.satuan}`"></div>
-
-                                    {{-- Jumlah yang baru diketik ditolak server --}}
-                                    <p x-show="item.error" x-cloak role="alert" class="mt-1.5 flex items-start gap-1.5 text-xs font-medium text-red-700 max-w-md">
-                                        <svg class="w-4 h-4 flex-shrink-0 text-red-500" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                        </svg>
-                                        <span x-text="item.error"></span>
-                                    </p>
-
-                                    {{-- Jumlah tersimpan melebihi stok tersedia --}}
-                                    <p x-show="bermasalah(item)" x-cloak role="alert" class="mt-1.5 flex items-start gap-1.5 text-xs font-medium text-amber-700 max-w-md">
-                                        <svg class="w-4 h-4 flex-shrink-0 text-amber-500" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                        </svg>
-                                        <span>
-                                            <template x-if="item.tersedia === 0">
-                                                <span>
-                                                    <span x-show="item.dipesan > 0">Stok habis, semua sudah diajukan oleh tim lain.</span>
-                                                    <span x-show="item.dipesan <= 0">Stok habis.</span>
-                                                    Hapus persediaan ini, atau tunggu sampai stok tersedia lagi.
-                                                </span>
-                                            </template>
-                                            <template x-if="item.tersedia > 0">
-                                                <span x-text="`Hanya ${item.tersedia} ${item.satuan} tersedia${item.dipesan > 0 ? ' (sisanya sudah diajukan oleh tim lain)' : ''}. Kurangi jumlahnya menjadi ${item.tersedia} atau kurang.`"></span>
-                                            </template>
-                                        </span>
-                                    </p>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap align-top">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800" x-text="item.satuan"></span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap align-top">
-                                    <input type="number" min="1" :max="Math.max(1, item.tersedia)" :value="item.jumlah"
-                                        :aria-label="`Jumlah ${item.nama_barang}`" :disabled="item.saving"
-                                        @change="ubahJumlah(item, $event.target)"
-                                        @keydown.enter.prevent="$event.target.blur()"
-                                        class="w-20 px-3 py-1.5 rounded-xl border text-center text-sm focus:outline-none focus:ring-2 disabled:opacity-60"
-                                        :class="item.error ? 'border-red-300 focus:ring-red-200 focus:border-red-400' : 'border-gray-200 focus:ring-bps-blue/30 focus:border-bps-blue'">
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium align-top">
-                                    <button type="button" @click="hapus(item)" :disabled="item.saving"
-                                        class="text-red-600 hover:text-red-900 font-semibold cursor-pointer flex items-center gap-1 ml-auto disabled:opacity-50 disabled:cursor-wait">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                        </svg>
-                                        Hapus
-                                    </button>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
+            {{-- Satu daftar untuk semua layar: kartu di ponsel, kolom seperti tabel mulai layar md --}}
+            <div class="hidden md:grid md:grid-cols-[minmax(0,1fr)_8rem_9rem_6rem] gap-4 px-6 py-4 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <span>Nama Persediaan</span>
+                <span>Satuan</span>
+                <span>Jumlah Diminta</span>
+                <span class="text-right">Aksi</span>
             </div>
-            {{-- Tim wajib dipilih; jika tim punya lebih dari satu ketua, pemohon memilih salah satunya --}}
-            <div class="px-6 py-4 border-t border-gray-100 grid gap-4 sm:grid-cols-3">
+            <ul class="divide-y divide-gray-100">
+                <template x-for="item in items" :key="item.id">
+                    {{-- Jumlah melebihi stok tersedia (stok - yang sudah diajukan): tetap di keranjang, tapi menahan pengiriman --}}
+                    <li class="p-4 md:px-6 md:grid md:grid-cols-[minmax(0,1fr)_8rem_9rem_6rem] md:gap-4 md:items-start transition"
+                        :class="(bermasalah(item) || item.error) ? 'bg-amber-50/60' : 'hover:bg-gray-50/50'">
+                        <div class="min-w-0">
+                            <div class="font-bold text-gray-900 break-words" x-text="item.nama_barang"></div>
+                            <div class="text-xs text-gray-400" x-text="`Tersedia: ${item.tersedia} ${item.satuan}`"></div>
+
+                            {{-- Jumlah yang baru diketik ditolak server --}}
+                            <p x-show="item.error" x-cloak role="alert" class="mt-1.5 flex items-start gap-1.5 text-xs font-medium text-red-700 max-w-md">
+                                <svg class="w-4 h-4 flex-shrink-0 text-red-500" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                                <span x-text="item.error"></span>
+                            </p>
+
+                            {{-- Jumlah tersimpan melebihi stok tersedia --}}
+                            <p x-show="bermasalah(item)" x-cloak role="alert" class="mt-1.5 flex items-start gap-1.5 text-xs font-medium text-amber-700 max-w-md">
+                                <svg class="w-4 h-4 flex-shrink-0 text-amber-500" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                                <span>
+                                    <template x-if="item.tersedia === 0">
+                                        <span>
+                                            <span x-show="item.dipesan > 0">Stok habis, semua sudah diajukan oleh tim lain.</span>
+                                            <span x-show="item.dipesan <= 0">Stok habis.</span>
+                                            Hapus persediaan ini, atau tunggu sampai stok tersedia lagi.
+                                        </span>
+                                    </template>
+                                    <template x-if="item.tersedia > 0">
+                                        <span x-text="`Hanya ${item.tersedia} ${item.satuan} tersedia${item.dipesan > 0 ? ' (sisanya sudah diajukan oleh tim lain)' : ''}. Kurangi jumlahnya menjadi ${item.tersedia} atau kurang.`"></span>
+                                    </template>
+                                </span>
+                            </p>
+                        </div>
+
+                        {{-- Ponsel: satu baris di bawah nama (turun baris jika sempit, Hapus jadi ikon); md: tiap bagian jadi kolom sendiri --}}
+                        <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 md:contents">
+                            <div class="md:pt-0.5">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800" x-text="item.satuan"></span>
+                            </div>
+                            <label class="flex items-center gap-2">
+                                <span class="text-xs text-gray-500 md:sr-only">Jumlah</span>
+                                <input type="number" min="1" :max="Math.max(1, item.tersedia)" :value="item.jumlah"
+                                    :aria-label="`Jumlah ${item.nama_barang}`" :disabled="item.saving"
+                                    @change="ubahJumlah(item, $event.target)"
+                                    @keydown.enter.prevent="$event.target.blur()"
+                                    class="w-20 px-3 py-2 md:py-1.5 rounded-xl border text-center text-sm focus:outline-none focus:ring-2 disabled:opacity-60"
+                                    :class="item.error ? 'border-red-300 focus:ring-red-200 focus:border-red-400' : 'border-gray-200 focus:ring-bps-blue/30 focus:border-bps-blue'">
+                            </label>
+                            <button type="button" @click="hapus(item)" :disabled="item.saving" :aria-label="`Hapus ${item.nama_barang}`" title="Hapus"
+                                class="ml-auto shrink-0 p-2 -m-2 md:p-0 md:m-0 text-sm text-red-600 hover:text-red-900 font-semibold cursor-pointer flex items-center gap-1 disabled:opacity-50 disabled:cursor-wait">
+                                <svg class="w-5 h-5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                                <span class="hidden md:inline">Hapus</span>
+                            </button>
+                        </div>
+                    </li>
+                </template>
+            </ul>
+            {{-- Tim & ketua tim wajib dipilih (tim tanpa ketua tidak bisa mengajukan); jika tim punya lebih dari satu ketua, pemohon memilih salah satunya --}}
+            <div class="px-4 sm:px-6 py-4 border-t border-gray-100 grid gap-4 sm:grid-cols-3">
                 <div>
                     <span class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Diminta oleh</span>
                     <p class="px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-700">{{ auth()->user()->name }}</p>
@@ -113,6 +110,10 @@
                         </template>
                     </select>
                 </div>
+                <p x-show="timTerpilih && !timTerpilih.chiefs.length" x-cloak role="alert"
+                    class="self-end px-3 py-2 rounded-xl border border-amber-200 bg-amber-50 text-xs font-medium text-amber-800">
+                    Tim ini belum memiliki ketua tim, jadi belum bisa mengajukan. Hubungi admin.
+                </p>
                 <div x-show="timTerpilih?.chiefs.length" x-cloak>
                     <label for="person_responsible_user_id" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Ketua Tim/Penanggung Jawab <span class="text-red-500">*</span></label>
                     <select id="person_responsible_user_id" x-model="chiefId" required :disabled="timTerpilih?.chiefs.length === 1"
@@ -124,12 +125,17 @@
                     </select>
                 </div>
             </div>
-            <div class="px-6 py-4 bg-gray-50 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 border-t border-gray-100">
+            {{-- Tanda tangan pemohon, wajib; ikut tercetak di PDF --}}
+            <div class="px-4 sm:px-6 py-4 border-t border-gray-100 sm:max-w-md">
+                <span class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Tanda Tangan Pemohon <span class="text-red-500">*</span></span>
+                @include('pengajuan.partials.tanda-tangan', ['atribut' => 'x-model="tandaTangan"'])
+            </div>
+            <div class="px-4 sm:px-6 py-4 bg-gray-50 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 border-t border-gray-100">
                 <p x-show="jumlahBermasalah" x-cloak class="text-xs font-medium text-amber-700 sm:mr-auto"
                     x-text="`Perbaiki ${jumlahBermasalah} item yang ditandai di atas untuk mengirim pengajuan.`"></p>
-                <p x-show="!jumlahBermasalah && !siapDikirim" x-cloak class="text-xs font-medium text-gray-500 sm:mr-auto">Pilih tim dan ketua tim/penanggung jawab untuk mengirim pengajuan.</p>
+                <p x-show="!jumlahBermasalah && !siapDikirim" x-cloak class="text-xs font-medium text-gray-500 sm:mr-auto">Pilih tim, ketua tim/penanggung jawab, dan tanda tangani untuk mengirim pengajuan.</p>
                 <button type="button" @click="kirim()" :disabled="jumlahBermasalah > 0 || !siapDikirim || sending || items.some(i => i.saving)"
-                    class="inline-flex items-center gap-2 bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white px-6 py-3 rounded-xl text-sm font-semibold transition shadow-[0_8px_24px_-12px_rgba(0,61,130,0.8)] cursor-pointer disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none disabled:cursor-not-allowed">
+                    class="inline-flex items-center justify-center gap-2 w-full sm:w-auto bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white px-6 py-3 rounded-xl text-sm font-semibold transition shadow-[0_8px_24px_-12px_rgba(0,61,130,0.8)] cursor-pointer disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none disabled:cursor-not-allowed">
                     <span x-text="sending ? 'Mengirim...' : '🚀 Kirim Pengajuan Sekarang'"></span>
                 </button>
             </div>
@@ -167,17 +173,18 @@
             teams: config.teams,
             teamId: '',
             chiefId: '',
+            tandaTangan: '',
 
             get timTerpilih() {
                 return this.teams.find(team => team.id === this.teamId) ?? null;
             },
 
-            // Tim wajib dipilih; ketua wajib dipilih hanya jika tim punya ketua
+            // Tim, ketua tim, dan tanda tangan wajib diisi
             get siapDikirim() {
-                return !!this.timTerpilih && (!this.timTerpilih.chiefs.length || !!this.chiefId);
+                return !!this.timTerpilih && !!this.chiefId && !!this.tandaTangan;
             },
 
-            // Satu ketua: langsung terpilih; lebih dari satu: pemohon wajib memilih; tanpa ketua: dikosongkan
+            // Satu ketua: langsung terpilih; lebih dari satu: pemohon wajib memilih; tanpa ketua: tidak bisa mengajukan
             pilihTim() {
                 const chiefs = this.timTerpilih?.chiefs ?? [];
                 this.chiefId = chiefs.length === 1 ? chiefs[0].id : '';
@@ -249,7 +256,7 @@
                 this.notice = null;
                 let pindahHalaman = false;
                 try {
-                    const response = await kirimJson(config.storeUrl, 'POST', { team_id: this.teamId, person_responsible_user_id: this.chiefId || null });
+                    const response = await kirimJson(config.storeUrl, 'POST', { team_id: this.teamId, person_responsible_user_id: this.chiefId, tanda_tangan: this.tandaTangan });
                     const json = await response.json().catch(() => ({}));
 
                     if (!response.ok) {

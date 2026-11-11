@@ -1,5 +1,5 @@
 <script>
-    // Daftar pengajuan (Pengajuan Saya & persetujuan admin): dimuat lewat JSON (pengajuan.data) tanpa reload halaman
+    // Daftar pengajuan (Pengajuan Saya, persetujuan ketua tim & admin): dimuat lewat JSON (pengajuan.data) tanpa reload halaman
     function pengajuanList(config) {
         let requestSeq = 0; // respons lama yang datang terlambat diabaikan
         let kriteriaDiminta = null; // pencarian + filter dari permintaan terakhir (termasuk yang masih berjalan)
@@ -12,8 +12,10 @@
             page: config.page,
             loading: true,
             error: '',
+            ttd: null, // pengajuan yang tanda tangannya sedang dilihat di dialog (ttd_pemohon, ttd_ketua)
             warnaStatus: {
-                pending: 'bg-amber-50 text-amber-700 border border-amber-200',
+                menunggu_ketua: 'bg-amber-50 text-amber-700 border border-amber-200',
+                menunggu_admin: 'bg-sky-50 text-sky-700 border border-sky-200',
                 disetujui: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
                 ditolak: 'bg-rose-50 text-rose-700 border border-rose-200',
                 dibatalkan: 'bg-slate-100 text-slate-500 border border-slate-200',
@@ -60,6 +62,10 @@
             search() {
                 if (!this.error && kriteria(this.filters) === kriteriaDiminta) return;
                 return this.load(1);
+            },
+
+            lihatTtd(item) {
+                this.ttd = item;
             },
 
             resetSearch() {

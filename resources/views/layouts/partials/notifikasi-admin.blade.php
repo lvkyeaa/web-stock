@@ -1,9 +1,9 @@
 {{-- Lonceng notifikasi admin: pengajuan persediaan & peminjaman fasilitas yang menunggu persetujuan --}}
 {{-- ─── 💡 AKUMULASI NOTIFIKASI BARANG & FASILITAS PENDING ─── --}}
 @php
-    // 1. Ambil data pengajuan permintaan barang pending
+    // 1. Ambil data pengajuan permintaan barang yang sudah disetujui ketua tim & menunggu admin
     $pendingRequests = \App\Models\Order::with('user')
-                        ->where('status', 'pending')
+                        ->where('status', 'menunggu_admin')
                         ->latest()
                         ->get();
 

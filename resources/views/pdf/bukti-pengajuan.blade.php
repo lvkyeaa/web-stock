@@ -105,6 +105,13 @@
 
         // Format User / Akun Pemohon
         $username = strtolower($pengajuan->user->username ?? $pengajuan->user->name ?? 'user');
+
+        // Tanda tangan (file PNG di disk local) ditanam sebagai data URI; pengajuan lama tanpa tanda tangan: dikosongkan
+        $ttd = fn (?string $path) => $path && \Illuminate\Support\Facades\Storage::disk('local')->exists($path)
+            ? 'data:image/png;base64,' . base64_encode(\Illuminate\Support\Facades\Storage::disk('local')->get($path))
+            : null;
+        $ttdKetua = $ttd($pengajuan->approvalKetua?->signature_path);
+        $ttdPemohon = $ttd($pengajuan->user_signature);
     @endphp
 
     {{-- KOP SURAT --}}
@@ -202,8 +209,8 @@
             </tr>
             <tr>
                 <!-- Space Tanda Tangan Top -->
-                <td></td>
-                <td></td>
+                <td>@if ($ttdKetua)<img src="{{ $ttdKetua }}" style="height: 55px;">@endif</td>
+                <td>@if ($ttdPemohon)<img src="{{ $ttdPemohon }}" style="height: 55px;">@endif</td>
             </tr>
             <tr>
                 <td>

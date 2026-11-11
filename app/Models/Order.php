@@ -6,14 +6,19 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-// Pengajuan barang: pending → disetujui (stok dipotong) / ditolak
+// Pengajuan barang: menunggu_ketua → menunggu_admin → disetujui (stok dipotong); ditolak di salah satu tingkat; dibatalkan pemohon
 class Order extends Model
 {
     use HasUuids;
 
-    protected $fillable = ['code', 'status', 'alasan', 'team_id', 'person_responsible_user_id'];
+    // Status yang masih menunggu keputusan: stoknya dipesan & pemohon masih boleh membatalkan
+    public const MENUNGGU = ['menunggu_ketua', 'menunggu_admin'];
+
+    protected $fillable = ['code', 'status', 'user_signature', 'team_id', 'person_responsible_user_id'];
 
     public static function buatKode(): string
     {
@@ -45,6 +50,26 @@ class Order extends Model
     public function riwayat(): HasMany
     {
         return $this->hasMany(Riwayat::class);
+    }
+
+    // Keputusan tiap tingkat persetujuan (ketua tim, admin)
+    public function approvals(): HasMany
+    {
+        return $this->hasMany(OrderApproval::class);
+    }
+
+    public function approvalKetua(): HasOne
+    {
+        return $this->hasOne(OrderApproval::class)->where('level', 'ketua');
+    }
+
+    // Simpan tanda tangan (data URL PNG dari kanvas) ke disk local (privat); kembalikan path-nya
+    public static function simpanTandaTangan(string $dataUrl): string
+    {
+        $path = 'tanda-tangan/' . Str::uuid() . '.png';
+        Storage::disk('local')->put($path, base64_decode(Str::after($dataUrl, ',')));
+
+        return $path;
     }
 
     // Format: {urutan pengajuan disetujui di bulan itu}/{nama singkat tim}/{bulan romawi}/{tahun}, contoh 1/Umum/VIII/2026

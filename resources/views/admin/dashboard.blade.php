@@ -9,7 +9,7 @@
                 'warna' => 'bg-bps-blue/10 text-bps-blue', 'ikon' => 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'],
             ['label' => 'Stok Habis', 'nilai' => $stats['stok_habis'], 'ket' => 'Tidak bisa diajukan', 'url' => route('barang.index', ['stok_habis' => 1, 'urut' => 'nama']),
                 'warna' => 'bg-rose-50 text-rose-600', 'ikon' => 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'],
-            ['label' => 'Pengajuan Menunggu', 'nilai' => $stats['pending'], 'ket' => 'Perlu disetujui / ditolak', 'url' => route('pengajuan.index', ['status' => 'pending']),
+            ['label' => 'Pengajuan Menunggu', 'nilai' => $stats['pending'], 'ket' => 'Perlu disetujui / ditolak', 'url' => route('pengajuan.index', ['status' => 'menunggu_admin']),
                 'warna' => 'bg-amber-50 text-amber-600', 'ikon' => 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'sorot' => $stats['pending'] > 0],
             ['label' => 'Disetujui Bulan Ini', 'nilai' => $stats['disetujui_bulan_ini'], 'ket' => now()->translatedFormat('F Y'), 'url' => route('pengajuan.index', ['status' => 'disetujui']),
                 'warna' => 'bg-emerald-50 text-emerald-600', 'ikon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
@@ -29,7 +29,7 @@
     // Akses cepat ke halaman kelola
     $pintasan = [
         ['label' => 'Kelola Persediaan', 'url' => route('barang.index'), 'ikon' => 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'],
-        ['label' => 'Persetujuan Pengajuan', 'url' => route('pengajuan.index', ['status' => 'pending']), 'ikon' => 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'],
+        ['label' => 'Persetujuan Pengajuan', 'url' => route('pengajuan.index', ['status' => 'menunggu_admin']), 'ikon' => 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'],
         ['label' => 'Persetujuan Peminjaman Fasilitas', 'url' => route('peminjaman.index', ['view' => 'list', 'status' => 'pending']), 'ikon' => 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'],
         ['label' => 'User Management', 'url' => route('admin.manajemen-user.index'), 'ikon' => 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'],
     ];

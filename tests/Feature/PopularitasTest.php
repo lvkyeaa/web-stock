@@ -57,7 +57,7 @@ class PopularitasTest extends TestCase
         $amplop = $this->barang('Amplop');
         $this->pengajuan($amplop, 'disetujui', 2200);  // banyak unit tetap dihitung 1 pengajuan
         $this->pengajuan($amplop, 'disetujui', 5);
-        $this->pengajuan($amplop, 'pending', 3);
+        $this->pengajuan($amplop, 'menunggu_admin', 3);
         $this->pengajuan($amplop, 'ditolak', 3);
         $this->pengajuan($amplop, 'disetujui', 1, now()->subDays(120)->toDateTimeString()); // di luar 90 hari
 
