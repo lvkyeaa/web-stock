@@ -1,0 +1,16 @@
+{
+    "name": "Sistem Manajemen Persediaan — BPS Provinsi Jawa Timur",
+    "short_name": "Persediaan BPS",
+    "description": "Pengajuan persediaan dan peminjaman fasilitas BPS Provinsi Jawa Timur",
+    "lang": "id",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#fffbf7",
+    "theme_color": "#003d82",
+    "icons": [
+        { "src": "/images/ikon-192.png", "sizes": "192x192", "type": "image/png" },
+        { "src": "/images/ikon-512.png", "sizes": "512x512", "type": "image/png" },
+        { "src": "/images/ikon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ]
+}

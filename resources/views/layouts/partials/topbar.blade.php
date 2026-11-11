@@ -18,6 +18,8 @@
 
     <div class="flex items-center gap-3">
 
+        @include('layouts.partials.tombol-pasang')
+
         @include('layouts.partials.ikon-keranjang')
 
         {{-- Notifikasi berbeda per peran --}}
