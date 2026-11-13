@@ -112,6 +112,9 @@
             : null;
         $ttdKetua = $ttd($pengajuan->approvalKetua?->signature_path);
         $ttdPemohon = $ttd($pengajuan->user_signature);
+
+        // Tanda tangan tetap pejabat persediaan (berkas di resources/ttd, tidak bisa dibuka lewat URL)
+        $ttdTetap = fn (string $nama) => 'data:image/png;base64,' . base64_encode(file_get_contents(resource_path("ttd/$nama")));
     @endphp
 
     {{-- KOP SURAT --}}
@@ -239,8 +242,8 @@
             </tr>
             <tr>
                 <!-- Space Tanda Tangan Bottom -->
-                <td></td>
-                <td></td>
+                <td><img src="{{ $ttdTetap('ttd-hari.png') }}" style="height: 55px;"></td>
+                <td><img src="{{ $ttdTetap('ttd-sodik.png') }}" style="height: 55px;"></td>
             </tr>
             <tr>
                 <td>
