@@ -22,12 +22,7 @@
 
         @include('layouts.partials.ikon-keranjang')
 
-        {{-- Notifikasi berbeda per peran --}}
-        @role('admin')
-            @include('layouts.partials.notifikasi-admin')
-        @else
-            @include('layouts.partials.notifikasi-customer')
-        @endrole
+        @include('layouts.partials.notifikasi')
 
         @include('layouts.partials.menu-akun')
     </div>

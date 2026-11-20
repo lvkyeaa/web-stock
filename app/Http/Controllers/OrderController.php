@@ -9,7 +9,7 @@ use App\Models\Riwayat;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\PersetujuanPengajuan;
-use App\Services\WhatsApp;
+use App\Services\KabarPengajuan;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -137,7 +137,7 @@ class OrderController extends Controller
 
     // Checkout: isi keranjang menjadi satu pengajuan (order) yang menunggu ketua tim. Berlaku untuk customer maupun admin.
     // Stok dipesan sampai pengajuan disetujui admin (stok dipotong), ditolak, atau dibatalkan.
-    public function store(Request $request, WhatsApp $whatsApp)
+    public function store(Request $request, KabarPengajuan $kabar)
     {
         $request->validate([
             'team_id'                    => 'required|exists:teams,id',
@@ -226,7 +226,7 @@ class OrderController extends Controller
             ], 422);
         }
 
-        $whatsApp->kabariPengajuan($hasil, 'diajukan');
+        $kabar->kirim($hasil, 'diajukan');
 
         $pesan = "Pengajuan {$hasil->code} berhasil dikirim dan menunggu persetujuan ketua tim.";
 

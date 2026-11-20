@@ -9,10 +9,10 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 // Keputusan persetujuan pengajuan (tingkat ketua tim & admin), dipakai halaman aplikasi dan persetujuan cepat dari WhatsApp.
-// Hasil: null jika berhasil, atau pesan galat (string). Setelah berhasil, pihak terkait dikabari lewat WhatsApp.
+// Hasil: null jika berhasil, atau pesan galat (string). Setelah berhasil, pihak terkait dikabari (lonceng + WhatsApp).
 class PersetujuanPengajuan
 {
-    public function __construct(private WhatsApp $whatsApp)
+    public function __construct(private KabarPengajuan $kabar)
     {
     }
 
@@ -52,7 +52,7 @@ class PersetujuanPengajuan
         });
 
         if (! $error) {
-            $this->whatsApp->kabariPengajuan($order->fresh(), $status === 'disetujui' ? 'disetujui_ketua' : 'ditolak_ketua', $alasan);
+            $this->kabar->kirim($order->fresh(), $status === 'disetujui' ? 'disetujui_ketua' : 'ditolak_ketua', $alasan);
         }
 
         return $error;
@@ -117,7 +117,7 @@ class PersetujuanPengajuan
         });
 
         if (! $error) {
-            $this->whatsApp->kabariPengajuan($order->fresh(), 'keputusan_admin', $alasan);
+            $this->kabar->kirim($order->fresh(), 'keputusan_admin', $alasan);
         }
 
         return $error;

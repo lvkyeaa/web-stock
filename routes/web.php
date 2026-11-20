@@ -7,6 +7,7 @@ use App\Http\Controllers\Customer;
 use App\Http\Controllers\BarangController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\CartController;
+use App\Http\Controllers\NotifikasiController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PersetujuanCepatController;
 use App\Http\Controllers\ProfilController;
@@ -106,6 +107,12 @@ foreach (['admin/transaksi', 'customer/pengajuan', 'customer/riwayat-pengajuan']
     Route::get($urlLama, fn () => redirect()->route('pengajuan.index', request()->query()));
 }
 Route::get('customer/keranjang', fn () => redirect()->route('keranjang.index'));
+
+// ─── 🔔 NOTIFIKASI (lonceng di top bar, admin & customer) ───
+Route::prefix('notifikasi')->name('notifikasi.')->middleware(['auth', 'role:admin|customer'])->group(function () {
+    Route::get('/{id}', [NotifikasiController::class, 'buka'])->name('buka');
+    Route::post('/baca-semua', [NotifikasiController::class, 'bacaSemua'])->name('baca-semua');
+});
 
 // ─── 👤 PROFIL: data akun sendiri, ubah nomor WhatsApp (admin & customer) ───
 Route::prefix('profil')->name('profil.')->middleware(['auth', 'role:admin|customer'])->group(function () {
