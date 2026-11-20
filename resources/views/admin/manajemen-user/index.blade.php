@@ -4,19 +4,21 @@
 @section('content')
     {{-- Daftar dimuat lewat JSON (manajemen-user.data): cari / ganti halaman / tambah / ubah / hapus tidak me-reload halaman --}}
     <div class="space-y-6" x-data="penggunaPage(@js($initial))">
-        <div class="flex items-center justify-between">
+        {{-- Ponsel: judul di atas, dua tombol berdampingan selebar layar; sm ke atas: satu baris --}}
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 class="text-xl font-semibold tracking-tight text-gray-900">Pengguna</h2>
-            <div class="flex flex-wrap items-center justify-end gap-2">
-                <a href="{{ route('admin.manajemen-user.ketua-tim.index') }}"
-                    class="flex items-center gap-2 border border-bps-blue/30 bg-white text-bps-blue hover:bg-bps-blue/5 px-4 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+                <a href="{{ route('admin.manajemen-user.ketua-tim.index') }}" title="Kelola Ketua Tim/Penanggung Jawab"
+                    class="flex items-center justify-center gap-2 border border-bps-blue/30 bg-white text-bps-blue hover:bg-bps-blue/5 px-3 sm:px-4 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    Kelola Ketua Tim/Penanggung Jawab
+                    <span class="sm:hidden">Ketua Tim</span>
+                    <span class="hidden sm:inline">Kelola Ketua Tim/Penanggung Jawab</span>
                 </a>
                 <button type="button" @click="bukaForm()"
-                    class="flex items-center gap-2 bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-[0_8px_24px_-12px_rgba(0,61,130,0.8)] cursor-pointer">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    class="flex items-center justify-center gap-2 bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white px-3 sm:px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-[0_8px_24px_-12px_rgba(0,61,130,0.8)] cursor-pointer">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
                     Tambah Pengguna
@@ -24,9 +26,16 @@
             </div>
         </div>
 
-        {{-- Cari nama / username (debounce) --}}
-        <form @submit.prevent="search()" class="rounded-2xl border border-slate-200/70 bg-white p-3 shadow-sm">
-            <div class="relative">
+        {{-- Cari nama / username (debounce) + filter role --}}
+        <form @submit.prevent="search()" class="rounded-2xl border border-slate-200/70 bg-white p-3 shadow-sm flex flex-col sm:flex-row gap-2">
+            <select x-model="filters.role" @change="load(1)" aria-label="Filter role"
+                class="sm:w-44 shrink-0 px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
+                <option value="">Semua Role</option>
+                <template x-for="[kunci, label] in Object.entries(config.roles)" :key="kunci">
+                    <option :value="kunci" x-text="label" :selected="kunci === filters.role"></option>
+                </template>
+            </select>
+            <div class="relative flex-1">
                 <input type="text" x-model="filters.q" @input.debounce.400ms="search()" placeholder="Cari nama atau username..."
                     class="w-full pl-9 pr-9 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -104,7 +113,7 @@
                         </tr>
                         <tr x-show="!loading && !error && !items.length" x-cloak>
                             <td colspan="5" class="px-6 py-12 text-center text-gray-400 text-sm"
-                                x-text="filters.q.trim() ? 'Tidak ada pengguna yang cocok dengan pencarian.' : 'Belum ada user.'"></td>
+                                x-text="filters.q.trim() || filters.role ? 'Tidak ada pengguna yang cocok dengan pencarian / filter.' : 'Belum ada user.'"></td>
                         </tr>
                         <tr x-show="error" x-cloak>
                             <td colspan="5" class="px-6 py-12 text-center text-sm text-red-600">
@@ -236,7 +245,8 @@
             return {
                 items: [],
                 meta: { current_page: 1, last_page: 1, from: null, to: null, total: 0 },
-                filters: { q: config.q },
+                config,
+                filters: { q: config.q, role: config.role },
                 page: config.page,
                 loading: true,
                 error: '',
@@ -256,6 +266,7 @@
 
                     const params = new URLSearchParams({ page });
                     if (this.filters.q.trim()) params.set('q', this.filters.q.trim());
+                    if (this.filters.role) params.set('role', this.filters.role);
 
                     try {
                         const response = await fetch(`${config.dataUrl}?${params}`, { headers: { 'Accept': 'application/json' } });
@@ -305,6 +316,7 @@
                 syncUrl() {
                     const params = new URLSearchParams();
                     if (this.filters.q.trim()) params.set('q', this.filters.q.trim());
+                    if (this.filters.role) params.set('role', this.filters.role);
                     if (this.page > 1) params.set('page', this.page);
                     history.replaceState(null, '', params.size ? `${location.pathname}?${params}` : location.pathname);
                 },

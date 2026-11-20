@@ -15,11 +15,16 @@ use Illuminate\Validation\Rule;
 // Kelola pengguna: daftar, tambah, ubah, dan hapus lewat JSON tanpa reload halaman
 class ManajemenUserController extends Controller
 {
+    // Pilihan filter daftar pengguna: role (Spatie) + ketua tim (bukan role, tapi tercatat di team_chief)
+    private const FILTER_ROLE = User::LABEL_PERAN + ['ketua' => 'Ketua Tim/PJ'];
+
     // Hanya kerangka halaman; daftar diambil lewat data() (JSON). Kondisi awal dari query string (tetap saat reload)
     public function index(Request $request)
     {
         return view('admin.manajemen-user.index', ['initial' => [
             'q'          => mb_substr(trim((string) $request->q), 0, 100),
+            'role'       => array_key_exists((string) $request->role, self::FILTER_ROLE) ? $request->role : '',
+            'roles'      => self::FILTER_ROLE,
             'page'       => max(1, (int) $request->page),
             'dataUrl'    => route('admin.manajemen-user.data'),
             'storeUrl'   => route('admin.manajemen-user.store'),
@@ -29,15 +34,18 @@ class ManajemenUserController extends Controller
         ]]);
     }
 
-    // API JSON: daftar pengguna per halaman, dengan pencarian nama / username
+    // API JSON: daftar pengguna per halaman, dengan pencarian nama / username dan filter role
     public function data(Request $request)
     {
         $request->validate([
             'q'    => 'nullable|string|max:100',
+            'role' => ['nullable', Rule::in(array_keys(self::FILTER_ROLE))],
             'page' => 'nullable|integer|min:1',
         ]);
 
         $users = User::with('roles')
+            ->when($request->role === 'ketua', fn ($query) => $query->has('chiefOfTeams'))
+            ->when($request->filled('role') && $request->role !== 'ketua', fn ($query) => $query->role($request->role))
             ->when($request->filled('q'), function ($query) use ($request) {
                 $kata = '%' . trim($request->q) . '%';
                 $query->where(fn ($w) => $w->where('name', 'like', $kata)->orWhere('username', 'like', $kata));
