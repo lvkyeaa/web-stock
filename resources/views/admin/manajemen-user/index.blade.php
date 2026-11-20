@@ -67,6 +67,7 @@
                                         <div>
                                             <span class="text-sm font-semibold text-gray-900 block" x-text="user.name || '-'"></span>
                                             <span class="text-xs text-gray-400 block" x-text="user.username"></span>
+                                            <span x-show="user.phone" class="text-xs text-gray-400 block" x-text="user.phone"></span>
                                         </div>
                                     </div>
                                 </td>
@@ -140,6 +141,11 @@
                         <label for="user_email" class="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
                         <input type="email" id="user_email" x-model="form.email" required placeholder="nama@mail.com" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
                         <p class="text-[11px] text-gray-400 mt-1">Email juga dipakai sebagai username untuk login.</p>
+                    </div>
+                    <div>
+                        <label for="user_phone" class="block text-sm font-semibold text-gray-700 mb-1.5">Nomor HP <span class="font-normal text-gray-400">(opsional)</span></label>
+                        <input type="tel" id="user_phone" x-model="form.phone" maxlength="15" pattern="62[0-9]{8,13}" title="Diawali 62, hanya angka, 10–15 digit. Contoh: 6281234567890" inputmode="numeric" placeholder="6281234567890" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-bps-blue">
+                        <p class="text-[11px] text-gray-400 mt-1">Diawali 62, hanya angka (tanpa +, spasi, atau tanda -).</p>
                     </div>
                     <div x-show="!form.id">
                         <label for="user_password" class="block text-sm font-semibold text-gray-700 mb-1.5">Password</label>
@@ -225,7 +231,7 @@
                 body: body ? JSON.stringify(body) : undefined,
             });
             const pesanGalat = (json, cadangan) => json.errors ? Object.values(json.errors).flat().join(' ') : (json.message ?? cadangan);
-            const formKosong = { open: false, id: null, name: '', email: '', password: '', password_confirmation: '', role: 'customer', saving: false, error: '' };
+            const formKosong = { open: false, id: null, name: '', email: '', phone: '', password: '', password_confirmation: '', role: 'customer', saving: false, error: '' };
 
             return {
                 items: [],
@@ -312,18 +318,18 @@
                 // Tanpa argumen: form tambah; dengan user: form edit berisi data user tersebut
                 bukaForm(user = null) {
                     this.form = user
-                        ? { ...formKosong, open: true, id: user.id, name: user.name ?? '', email: user.email ?? user.username, role: user.role ?? 'customer' }
+                        ? { ...formKosong, open: true, id: user.id, name: user.name ?? '', email: user.email ?? user.username, phone: user.phone ?? '', role: user.role ?? 'customer' }
                         : { ...formKosong, open: true };
                 },
 
                 async simpan() {
-                    const { id, name, email, password, password_confirmation, role } = this.form;
+                    const { id, name, email, phone, password, password_confirmation, role } = this.form;
                     this.form.saving = true;
                     this.form.error = '';
                     try {
                         const response = id
-                            ? await kirimJson(config.updateUrl.replace(':id', id), 'PUT', { name, email, role, password, password_confirmation })
-                            : await kirimJson(config.storeUrl, 'POST', { name, email, role, password });
+                            ? await kirimJson(config.updateUrl.replace(':id', id), 'PUT', { name, email, phone, role, password, password_confirmation })
+                            : await kirimJson(config.storeUrl, 'POST', { name, email, phone, role, password });
                         const json = await response.json().catch(() => ({}));
                         if (!response.ok) {
                             this.form.error = pesanGalat(json, 'Gagal menyimpan pengguna. Silakan coba lagi.');

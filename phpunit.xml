@@ -28,6 +28,8 @@
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="MAJAPAHIT_WHATSAPP_API_URL" value="https://whatsapp.test/push-pesan/"/>
+        <env name="MAJAPAHIT_WHATSAPP_API_KEY" value="kunci-uji"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>

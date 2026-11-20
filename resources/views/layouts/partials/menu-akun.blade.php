@@ -28,7 +28,15 @@
             <p class="text-xs text-gray-400 truncate">{{ auth()->user()->username }} · {{ auth()->user()->labelPeran() }}</p>
         </div>
 
-        <form action="{{ route('logout') }}" method="POST" class="px-2 pt-2">
+        <a href="{{ route('profil.index') }}" role="menuitem"
+            class="mx-2 mt-2 flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            Profil
+        </a>
+
+        <form action="{{ route('logout') }}" method="POST" class="px-2 pt-1">
             @csrf
             <button type="submit" role="menuitem"
                 class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-red-500/10 hover:text-red-500 transition cursor-pointer">

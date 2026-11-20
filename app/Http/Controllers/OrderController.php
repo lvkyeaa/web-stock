@@ -8,6 +8,8 @@ use App\Models\Order;
 use App\Models\Riwayat;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\PersetujuanPengajuan;
+use App\Services\WhatsApp;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -135,15 +137,19 @@ class OrderController extends Controller
 
     // Checkout: isi keranjang menjadi satu pengajuan (order) yang menunggu ketua tim. Berlaku untuk customer maupun admin.
     // Stok dipesan sampai pengajuan disetujui admin (stok dipotong), ditolak, atau dibatalkan.
-    public function store(Request $request)
+    public function store(Request $request, WhatsApp $whatsApp)
     {
         $request->validate([
             'team_id'                    => 'required|exists:teams,id',
             'person_responsible_user_id' => 'nullable|string',
             'tanda_tangan'               => $this->aturanTandaTangan(),
+            // Nomor WhatsApp wajib bagi pemohon yang belum punya nomor (untuk kabar persetujuan)
+            'phone'                      => [$request->user()->phone ? 'nullable' : 'required', 'regex:/^62[0-9]{8,13}$/'],
         ], [
             'team_id.required'      => 'Pilih tim terlebih dahulu.',
             'tanda_tangan.required' => 'Tanda tangan dulu sebelum mengirim pengajuan.',
+            'phone.required'        => 'Isi nomor WhatsApp terlebih dahulu.',
+            'phone.regex'           => 'Nomor WhatsApp harus diawali 62 dan hanya berisi angka (10–15 digit), contoh 6281234567890.',
         ]);
 
         // Ketua tim wajib dipilih dan harus salah satu ketua tim itu; tim tanpa ketua belum bisa mengajukan
@@ -203,6 +209,11 @@ class OrderController extends Controller
 
             $user->cartItems()->delete();
 
+            // Nomor WhatsApp dari halaman keranjang hanya mengisi yang masih kosong, tidak mengganti nomor yang sudah ada
+            if (! $user->phone && $request->filled('phone')) {
+                $user->update(['phone' => $request->phone]);
+            }
+
             return $order;
         });
 
@@ -214,6 +225,8 @@ class OrderController extends Controller
                 'items'   => $user->keranjang()->map(fn (CartItem $item) => $item->untukKeranjang())->values(),
             ], 422);
         }
+
+        $whatsApp->kabariPengajuan($hasil, 'diajukan');
 
         $pesan = "Pengajuan {$hasil->code} berhasil dikirim dan menunggu persetujuan ketua tim.";
 
@@ -229,7 +242,7 @@ class OrderController extends Controller
     }
 
     // Persetujuan tingkat 1 oleh ketua tim yang dipilih saat checkout. Setuju (wajib tanda tangan) → menunggu admin; tolak → selesai.
-    public function keputusanKetua(Request $request, Order $order)
+    public function keputusanKetua(Request $request, Order $order, PersetujuanPengajuan $persetujuan)
     {
         // 404 agar keberadaan pengajuan yang bukan untuknya tidak terungkap
         abort_unless($order->person_responsible_user_id === $request->user()->id, 404);
@@ -242,37 +255,7 @@ class OrderController extends Controller
             'tanda_tangan.required' => 'Tanda tangan dulu sebelum menyetujui.',
         ]);
 
-        $error = DB::transaction(function () use ($request, $order) {
-            // Kunci order agar keputusan tidak bentrok dengan pembatalan oleh pemohon
-            $order = Order::whereKey($order->id)->lockForUpdate()->first();
-
-            if ($order->status !== 'menunggu_ketua') {
-                return 'Pengajuan ini sudah diproses sebelumnya.';
-            }
-
-            $disetujui = $request->status === 'disetujui';
-            $statusBaru = $disetujui ? 'menunggu_admin' : 'ditolak';
-
-            $order->approvals()->create([
-                'level'          => 'ketua',
-                'user_id'        => $request->user()->id,
-                'keputusan'      => $request->status,
-                'signature_path' => $disetujui ? Order::simpanTandaTangan($request->tanda_tangan) : null,
-                'catatan'        => $disetujui ? null : $request->alasan,
-            ]);
-
-            Riwayat::create([
-                'order_id'          => $order->id,
-                'actor_id'          => $request->user()->id,
-                'status_sebelumnya' => $order->status,
-                'status_sesudah'    => $statusBaru,
-                'catatan'           => $request->alasan,
-            ]);
-
-            $order->update(['status' => $statusBaru]);
-
-            return null;
-        });
+        $error = $persetujuan->ketua($order, $request->user(), $request->status, $request->alasan, $request->tanda_tangan);
 
         $pesan = $error ?? ($request->status === 'disetujui'
             ? 'Pengajuan disetujui dan diteruskan ke admin.'
@@ -282,67 +265,14 @@ class OrderController extends Controller
     }
 
     // Persetujuan tingkat 2 oleh admin (tanpa tanda tangan): setuju → stok dipotong & diberi nomor surat
-    public function updateStatus(Request $request, Order $order)
+    public function updateStatus(Request $request, Order $order, PersetujuanPengajuan $persetujuan)
     {
         $request->validate([
             'status' => 'required|in:disetujui,ditolak',
             'alasan' => 'nullable|string|max:500',
         ]);
 
-        $error = DB::transaction(function () use ($request, $order) {
-            // Kunci order agar dua admin tidak memproses pengajuan yang sama bersamaan
-            $order = Order::whereKey($order->id)->lockForUpdate()->first();
-
-            if ($order->status === 'menunggu_ketua') {
-                return 'Pengajuan ini belum disetujui ketua tim.';
-            }
-            if ($order->status !== 'menunggu_admin') {
-                return 'Transaksi ini sudah diproses sebelumnya.';
-            }
-
-            if ($request->status === 'disetujui') {
-                // Kunci baris barang agar stok tidak bisa minus karena persetujuan bersamaan
-                $barang = Barang::whereKey($order->items->pluck('barang_id'))->lockForUpdate()->get()->keyBy('id');
-
-                foreach ($order->items as $item) {
-                    $stok = $barang->get($item->barang_id);
-
-                    if (! $stok) {
-                        return "Persediaan '{$item->nama_barang}' sudah dihapus dari inventaris.";
-                    }
-                    if ($stok->stock < $item->jumlah) {
-                        return "Stok persediaan '{$item->nama_barang}' tidak mencukupi. Sisa stok: {$stok->stock}, diminta: {$item->jumlah}.";
-                    }
-                }
-
-                foreach ($order->items as $item) {
-                    $barang->get($item->barang_id)->decrement('stock', $item->jumlah);
-                }
-            }
-
-            $order->approvals()->create([
-                'level'     => 'admin',
-                'user_id'   => auth()->id(),
-                'keputusan' => $request->status,
-                'catatan'   => $request->status === 'ditolak' ? $request->alasan : null,
-            ]);
-
-            Riwayat::create([
-                'order_id'          => $order->id,
-                'actor_id'          => auth()->id(),
-                'status_sebelumnya' => $order->status,
-                'status_sesudah'    => $request->status,
-                'catatan'           => $request->alasan,
-            ]);
-
-            $order->update(['status' => $request->status]);
-
-            if ($request->status === 'disetujui') {
-                $order->beriNomor(); // nomor surat PDF tetap sejak disetujui
-            }
-
-            return null;
-        });
+        $error = $persetujuan->admin($order, $request->user(), $request->status, $request->alasan);
 
         $pesan = $error ?? ($request->status === 'disetujui'
             ? 'Permintaan persediaan berhasil disetujui dan stok telah dipotong.'
@@ -427,7 +357,7 @@ class OrderController extends Controller
     }
 
     // Tanda tangan dari kanvas: data URL yang benar-benar berisi gambar PNG (maks. ~500 KB)
-    private function aturanTandaTangan(): array
+    public static function aturanTandaTangan(): array
     {
         return ['required', 'string', 'starts_with:data:image/png;base64,', 'max:700000', function ($attribute, $value, $fail) {
             $info = @getimagesizefromstring((string) base64_decode(substr($value, strpos($value, ',') + 1), true));

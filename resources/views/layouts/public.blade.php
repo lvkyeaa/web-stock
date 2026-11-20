@@ -30,6 +30,8 @@
                 </div>
             </div>
 
+            {{-- Halaman bisa menyembunyikan tombol Masuk dengan @section('tanpa-tombol-masuk', true) --}}
+            @sectionMissing('tanpa-tombol-masuk')
             <a href="{{ route('login') }}"
                 class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-bps-orange hover:bg-bps-orange-hover text-white shadow-sm transition flex-shrink-0">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -37,6 +39,7 @@
                 </svg>
                 Masuk
             </a>
+            @endif
         </div>
     </header>
 

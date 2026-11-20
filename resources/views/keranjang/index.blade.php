@@ -10,6 +10,7 @@
     'updateUrl' => route('keranjang.update', ':id'),
     'deleteUrl' => route('keranjang.delete', ':id'),
     'storeUrl'  => route('pengajuan.store'),
+    'perluHp'   => ! auth()->user()->phone,
 ]))">
     <div>
         <h2 class="text-xl font-semibold tracking-tight text-gray-900">Keranjang Persediaan</h2>
@@ -125,6 +126,17 @@
                     </select>
                 </div>
             </div>
+            {{-- Pemohon belum punya nomor HP: wajib diisi agar menerima kabar persetujuan lewat WhatsApp; tersimpan ke profil saat pengajuan terkirim --}}
+            @if (! auth()->user()->phone)
+                <div class="px-4 sm:px-6 py-4 border-t border-gray-100 sm:max-w-md">
+                    <label for="phone" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nomor WhatsApp <span class="text-red-500">*</span></label>
+                    <input type="tel" id="phone" x-model.trim="phone" required maxlength="15" inputmode="numeric" placeholder="6281234567890"
+                        class="w-full px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2"
+                        :class="phone === '' || hpValid ? 'border-gray-200 focus:ring-bps-blue/30 focus:border-bps-blue' : 'border-red-300 focus:ring-red-200 focus:border-red-400'">
+                    <p x-show="phone !== '' && !hpValid" x-cloak role="alert" class="text-xs font-medium text-red-700 mt-1">Nomor harus diawali 62 dan hanya berisi angka (10–15 digit), contoh 6281234567890.</p>
+                    <p class="text-xs text-gray-500 mt-1">Anda belum mengisi nomor WhatsApp. Wajib diisi agar Anda menerima kabar persetujuan pengajuan dari ketua tim dan admin lewat WhatsApp. Diawali 62, tanpa +, spasi, atau tanda -.</p>
+                </div>
+            @endif
             {{-- Tanda tangan pemohon, wajib; ikut tercetak di PDF --}}
             <div class="px-4 sm:px-6 py-4 border-t border-gray-100 sm:max-w-md">
                 <span class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Tanda Tangan Pemohon <span class="text-red-500">*</span></span>
@@ -133,7 +145,8 @@
             <div class="px-4 sm:px-6 py-4 bg-gray-50 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 border-t border-gray-100">
                 <p x-show="jumlahBermasalah" x-cloak class="text-xs font-medium text-amber-700 sm:mr-auto"
                     x-text="`Perbaiki ${jumlahBermasalah} item yang ditandai di atas untuk mengirim pengajuan.`"></p>
-                <p x-show="!jumlahBermasalah && !siapDikirim" x-cloak class="text-xs font-medium text-gray-500 sm:mr-auto">Pilih tim, ketua tim/penanggung jawab, dan tanda tangani untuk mengirim pengajuan.</p>
+                <p x-show="!jumlahBermasalah && !siapDikirim" x-cloak class="text-xs font-medium text-gray-500 sm:mr-auto"
+                    x-text="perluHp ? 'Isi nomor WhatsApp, pilih tim, ketua tim/penanggung jawab, dan tanda tangani untuk mengirim pengajuan.' : 'Pilih tim, ketua tim/penanggung jawab, dan tanda tangani untuk mengirim pengajuan.'"></p>
                 <button type="button" @click="kirim()" :disabled="jumlahBermasalah > 0 || !siapDikirim || sending || items.some(i => i.saving)"
                     class="inline-flex items-center justify-center gap-2 w-full sm:w-auto bg-gradient-to-r from-bps-blue to-bps-blue-dark hover:from-bps-blue-dark hover:to-bps-blue text-white px-6 py-3 rounded-xl text-sm font-semibold transition shadow-[0_8px_24px_-12px_rgba(0,61,130,0.8)] cursor-pointer disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none disabled:cursor-not-allowed">
                     <span x-text="sending ? 'Mengirim...' : '🚀 Kirim Pengajuan Sekarang'"></span>
@@ -174,14 +187,21 @@
             teamId: '',
             chiefId: '',
             tandaTangan: '',
+            phone: '',
+            perluHp: config.perluHp,
+
+            // Pemohon tanpa nomor HP wajib mengisi: diawali 62 dan hanya angka (sama dengan validasi server)
+            get hpValid() {
+                return !this.perluHp || /^62[0-9]{8,13}$/.test(this.phone);
+            },
 
             get timTerpilih() {
                 return this.teams.find(team => team.id === this.teamId) ?? null;
             },
 
-            // Tim, ketua tim, dan tanda tangan wajib diisi
+            // Tim, ketua tim, dan tanda tangan wajib diisi; nomor HP (jika diisi) harus valid
             get siapDikirim() {
-                return !!this.timTerpilih && !!this.chiefId && !!this.tandaTangan;
+                return !!this.timTerpilih && !!this.chiefId && !!this.tandaTangan && this.hpValid;
             },
 
             // Satu ketua: langsung terpilih; lebih dari satu: pemohon wajib memilih; tanpa ketua: tidak bisa mengajukan
@@ -256,7 +276,7 @@
                 this.notice = null;
                 let pindahHalaman = false;
                 try {
-                    const response = await kirimJson(config.storeUrl, 'POST', { team_id: this.teamId, person_responsible_user_id: this.chiefId, tanda_tangan: this.tandaTangan });
+                    const response = await kirimJson(config.storeUrl, 'POST', { team_id: this.teamId, person_responsible_user_id: this.chiefId, tanda_tangan: this.tandaTangan, phone: this.phone });
                     const json = await response.json().catch(() => ({}));
 
                     if (!response.ok) {

@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
@@ -26,6 +27,7 @@ class KeranjangPengajuanTest extends TestCase
     {
         parent::setUp();
         Storage::fake('local');
+        Http::fake(); // pesan WhatsApp pengajuan (pemohon kini punya nomor) tidak dikirim sungguhan
     }
 
     // Satu tim (nama singkat 'umum') dengan satu ketua, dipakai semua checkout di satu tes
@@ -40,13 +42,13 @@ class KeranjangPengajuanTest extends TestCase
         return $this->tim;
     }
 
-    // Kirim isi keranjang dengan tim, ketua tim, dan tanda tangan yang sah (bisa ditimpa lewat $data)
+    // Kirim isi keranjang dengan tim, ketua tim, tanda tangan, dan nomor WhatsApp yang sah (bisa ditimpa lewat $data)
     private function kirim(User $user, array $data = []): TestResponse
     {
         $tim = $this->tim();
 
         return $this->actingAs($user)->postJson(route('pengajuan.store'), $data + [
-            'team_id' => $tim->id, 'person_responsible_user_id' => $this->ketua->id, 'tanda_tangan' => self::TTD,
+            'team_id' => $tim->id, 'person_responsible_user_id' => $this->ketua->id, 'tanda_tangan' => self::TTD, 'phone' => '6281234567890',
         ]);
     }
 

@@ -50,4 +50,10 @@ return [
         'model' => env('AI_SERVER_MODEL'),
     ],
 
+    // Kirim pesan WhatsApp lewat API Majapahit (push-pesan)
+    'whatsapp' => [
+        'url' => env('MAJAPAHIT_WHATSAPP_API_URL'),
+        'key' => env('MAJAPAHIT_WHATSAPP_API_KEY'),
+    ],
+
 ];

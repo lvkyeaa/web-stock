@@ -8,6 +8,8 @@ use App\Http\Controllers\BarangController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PersetujuanCepatController;
+use App\Http\Controllers\ProfilController;
 use App\Http\Controllers\MajapahitController;
 use Illuminate\Support\Facades\Route;
 
@@ -84,6 +86,13 @@ Route::prefix('pengajuan')->name('pengajuan.')->middleware(['auth', 'role:admin|
     Route::patch('/{order}/batal', [OrderController::class, 'batal'])->name('batal'); // pemohon (selama menunggu) / admin (selama menunggu ketua tim) membatalkan pengajuan
 });
 
+// ─── ⚡ PERSETUJUAN CEPAT TANPA LOGIN: tautan bertanda tangan (pengajuan + penerima) dari pesan WhatsApp ───
+// Tanpa auth; keabsahan tautan dicek middleware 'signed', wewenang & status pengajuan dicek di PersetujuanCepatController
+Route::prefix('persetujuan-cepat')->name('persetujuan-cepat.')->middleware(['signed', 'throttle:30,1'])->group(function () {
+    Route::get('/{order}/{user}', [PersetujuanCepatController::class, 'show'])->name('show');
+    Route::post('/{order}/{user}', [PersetujuanCepatController::class, 'store'])->name('store');
+});
+
 // ─── 🛒 KERANJANG BARANG (admin & customer), hak milik dicek di CartController; kirim pengajuan: pengajuan.store ───
 Route::prefix('keranjang')->name('keranjang.')->middleware(['auth', 'role:admin|customer'])->group(function () {
     Route::get('/', [CartController::class, 'index'])->name('index');
@@ -97,6 +106,12 @@ foreach (['admin/transaksi', 'customer/pengajuan', 'customer/riwayat-pengajuan']
     Route::get($urlLama, fn () => redirect()->route('pengajuan.index', request()->query()));
 }
 Route::get('customer/keranjang', fn () => redirect()->route('keranjang.index'));
+
+// ─── 👤 PROFIL: data akun sendiri, ubah nomor WhatsApp (admin & customer) ───
+Route::prefix('profil')->name('profil.')->middleware(['auth', 'role:admin|customer'])->group(function () {
+    Route::get('/', [ProfilController::class, 'index'])->name('index');
+    Route::put('/', [ProfilController::class, 'update'])->name('update');
+});
 
 // ─── 🤖 ASISTEN AI: kalimat → formulir peminjaman / isi keranjang (dashboard, halaman peminjaman, katalog) ───
 Route::prefix('asisten-ai')->name('asisten-ai.')->middleware(['auth', 'role:admin|customer'])->group(function () {

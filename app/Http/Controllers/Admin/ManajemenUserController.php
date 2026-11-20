@@ -51,7 +51,8 @@ class ManajemenUserController extends Controller
                 'name'        => $user->name,
                 'username'    => $user->username,
                 'email'       => $user->email,
-                'role'        => $user->getRoleNames()->first(),
+                'phone'       => $user->phone,
+                'role'      => $user->getRoleNames()->first(),
                 'role_label'  => $user->labelPeran(),
                 'dibuat'      => $user->created_at->tanggal(),
                 'is_self'     => $user->id === $request->user()->id,
@@ -71,6 +72,7 @@ class ManajemenUserController extends Controller
         $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|max:255|unique:users,email|unique:users,username', // username = email
+            'phone'    => ['nullable', 'regex:/^62[0-9]{8,13}$/'], // contoh 6281234567890
             'password' => 'required|string|min:6',
             'role'     => 'required|in:admin,customer',
         ]);
@@ -79,6 +81,7 @@ class ManajemenUserController extends Controller
             'name'     => $request->name,
             'username' => $request->email, // username disamakan dengan email
             'email'    => $request->email,
+            'phone'    => $request->phone,
             'password' => Hash::make($request->password),
         ]);
         $user->assignRole($request->role);
@@ -127,6 +130,7 @@ class ManajemenUserController extends Controller
                 Rule::unique('users')->ignore($user->id),
                 Rule::unique('users', 'username')->ignore($user->id), // username = email
             ],
+            'phone'    => ['nullable', 'regex:/^62[0-9]{8,13}$/'], // contoh 6281234567890
             'role'     => 'required|in:admin,customer',
             'password' => 'nullable|string|min:6|confirmed', // Opsional, wajib konfirmasi jika diisi
         ]);
@@ -135,6 +139,7 @@ class ManajemenUserController extends Controller
             'name'     => $request->name,
             'username' => $request->email, // username disamakan dengan email
             'email'    => $request->email,
+            'phone'    => $request->phone,
         ];
 
         // Jalankan update password HANYA jika field password diisi oleh admin
